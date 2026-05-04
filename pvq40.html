@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PVQ-40 价值观测量问卷</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=DM+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg: #0f0f0f;
+    --surface: #181818;
+    --surface2: #222222;
+    --border: #2a2a2a;
+    --accent: #c8a96e;
+    --accent2: #8fb8a0;
+    --text: #e8e4dc;
+    --text2: #9a9690;
+    --text3: #5a5650;
+    --danger: #c06060;
+    --r: #c06060;
+    --g: #8fb8a0;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Serif SC', serif;
+    min-height: 100vh;
+    padding: 0;
+  }
+
+  /* header */
+  .header {
+    border-bottom: 1px solid var(--border);
+    padding: 48px 60px 40px;
+    position: relative;
+    overflow: hidden;
+  }
+  .header::before {
+    content: '';
+    position: absolute;
+    top: -80px; right: -80px;
+    width: 300px; height: 300px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(200,169,110,0.08) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .header-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+  .header h1 {
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1.2;
+    margin-bottom: 12px;
+  }
+  .header p {
+    font-size: 15px;
+    color: var(--text2);
+    line-height: 1.7;
+    max-width: 600px;
+  }
+
+  /* progress */
+  .progress-bar {
+    height: 2px;
+    background: var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .progress-fill {
+    height: 100%;
+    background: var(--accent);
+    transition: width 0.4s ease;
+    width: 0%;
+  }
+
+  /* instruction */
+  .instruction {
+    margin: 40px 60px;
+    padding: 24px 28px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+  }
+  .instruction p {
+    font-size: 14px;
+    color: var(--text2);
+    line-height: 1.8;
+  }
+  .scale-legend {
+    display: flex;
+    gap: 8px;
+    margin-top: 16px;
+    flex-wrap: wrap;
+  }
+  .scale-item {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--text3);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .scale-num {
+    width: 20px; height: 20px;
+    border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px;
+    color: var(--accent);
+  }
+
+  /* questions */
+  .questions {
+    padding: 0 60px 60px;
+  }
+
+  .dimension-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin: 48px 0 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .dim-num {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 0.1em;
+    min-width: 40px;
+  }
+  .dim-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: 0.05em;
+  }
+  .dim-desc {
+    font-size: 12px;
+    color: var(--text3);
+    margin-left: auto;
+    font-family: 'DM Mono', monospace;
+  }
+
+  .question-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 24px 28px;
+    margin-bottom: 12px;
+    transition: border-color 0.2s;
+    position: relative;
+  }
+  .question-card:hover { border-color: var(--text3); }
+  .question-card.answered { border-color: var(--accent2); }
+
+  .q-num {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--text3);
+    letter-spacing: 0.1em;
+    margin-bottom: 10px;
+  }
+  .q-text {
+    font-size: 15px;
+    color: var(--text);
+    line-height: 1.7;
+    margin-bottom: 20px;
+  }
+
+  .scale {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .scale-btn {
+    flex: 1;
+    height: 36px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text3);
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.15s;
+    position: relative;
+  }
+  .scale-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .scale-btn.selected {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--bg);
+    font-weight: 500;
+  }
+  .scale-labels {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 6px;
+    padding: 0 2px;
+  }
+  .scale-label-text {
+    font-family: 'DM Mono', monospace;
+    font-size: 9px;
+    color: var(--text3);
+    letter-spacing: 0.05em;
+  }
+
+  /* submit */
+  .submit-section {
+    margin: 0 60px 40px;
+    padding: 32px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+  }
+  .submit-info {
+    font-size: 13px;
+    color: var(--text2);
+  }
+  .submit-count {
+    font-family: 'DM Mono', monospace;
+    font-size: 24px;
+    color: var(--accent);
+    margin-bottom: 4px;
+  }
+  .submit-btn {
+    padding: 14px 40px;
+    background: var(--accent);
+    border: none;
+    color: var(--bg);
+    font-family: 'Noto Serif SC', serif;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    letter-spacing: 0.05em;
+    transition: opacity 0.2s;
+    white-space: nowrap;
+  }
+  .submit-btn:hover { opacity: 0.85; }
+  .submit-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+  /* results */
+  .results {
+    display: none;
+    padding: 40px 60px;
+  }
+  .results.show { display: block; }
+
+  .result-header {
+    margin-bottom: 40px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid var(--border);
+  }
+  .result-header h2 {
+    font-size: 24px;
+    color: var(--text);
+    margin-bottom: 8px;
+  }
+  .result-header p {
+    font-size: 13px;
+    color: var(--text2);
+    font-family: 'DM Mono', monospace;
+  }
+
+  .dim-result {
+    display: grid;
+    grid-template-columns: 180px 1fr 80px 80px;
+    align-items: center;
+    gap: 20px;
+    padding: 16px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .dim-result:first-child { border-top: 1px solid var(--border); }
+
+  .dr-name {
+    font-size: 14px;
+    color: var(--text);
+    font-weight: 600;
+  }
+  .dr-name-en {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--text3);
+    margin-top: 2px;
+  }
+
+  .dr-bar-wrap {
+    height: 6px;
+    background: var(--border);
+    position: relative;
+  }
+  .dr-bar {
+    height: 100%;
+    background: var(--accent);
+    transition: width 0.8s ease;
+  }
+  .dr-bar.negative { background: var(--danger); }
+
+  .dr-raw {
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    color: var(--text2);
+    text-align: right;
+  }
+  .dr-centered {
+    font-family: 'DM Mono', monospace;
+    font-size: 14px;
+    font-weight: 500;
+    text-align: right;
+  }
+  .dr-centered.pos { color: var(--accent2); }
+  .dr-centered.neg { color: var(--danger); }
+
+  .top-values {
+    margin: 40px 0 24px;
+    padding: 28px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent2);
+  }
+  .top-values h3 {
+    font-size: 13px;
+    color: var(--accent2);
+    letter-spacing: 0.1em;
+    font-family: 'DM Mono', monospace;
+    margin-bottom: 16px;
+    text-transform: uppercase;
+  }
+  .top-list {
+    list-style: none;
+  }
+  .top-list li {
+    font-size: 15px;
+    color: var(--text);
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .top-list li:last-child { border-bottom: none; }
+  .rank-num {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    min-width: 24px;
+  }
+
+  .vector-box {
+    margin-top: 32px;
+    padding: 24px 28px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+  }
+  .vector-box h3 {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--text3);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+  .vector-display {
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    color: var(--accent);
+    line-height: 1.8;
+    word-break: break-all;
+  }
+
+  .restart-btn {
+    margin-top: 32px;
+    padding: 12px 32px;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text2);
+    font-family: 'Noto Serif SC', serif;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .restart-btn:hover {
+    border-color: var(--text2);
+    color: var(--text);
+  }
+
+  @media (max-width: 768px) {
+    .header, .instruction, .questions, .submit-section, .results { padding-left: 20px; padding-right: 20px; }
+    .dim-result { grid-template-columns: 140px 1fr 60px 60px; gap: 12px; }
+    .submit-section { flex-direction: column; align-items: flex-start; }
+  }
+</style>
+</head>
+<body>
+
+<div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+
+<div class="header">
+  <div class="header-label">Schwartz PVQ-40 · 价值观画像问卷</div>
+  <h1>你的价值权重向量 w<sub>i</sub></h1>
+  <p>本问卷通过40道人物画像题目，测量你在Schwartz十个基本价值维度上的偏好强度，输出你的个体价值权重向量 w<sub>i</sub> ∈ ℝ¹⁰，用于价值坐标系模型的个体参数估计。</p>
+</div>
+
+<div class="instruction">
+  <p>以下每题描述一个人。请思考<strong>这个人和你有多像</strong>，并从1到6打分。不存在对错之分，请按第一直觉作答。</p>
+  <div class="scale-legend">
+    <div class="scale-item"><span class="scale-num">1</span> 一点都不像我</div>
+    <div class="scale-item"><span class="scale-num">2</span> 不像我</div>
+    <div class="scale-item"><span class="scale-num">3</span> 有点不像我</div>
+    <div class="scale-item"><span class="scale-num">4</span> 有点像我</div>
+    <div class="scale-item"><span class="scale-num">5</span> 像我</div>
+    <div class="scale-item"><span class="scale-num">6</span> 非常像我</div>
+  </div>
+</div>
+
+<div class="questions" id="questionsContainer"></div>
+
+<div class="submit-section">
+  <div class="submit-info">
+    <div class="submit-count"><span id="answeredCount">0</span> / 40</div>
+    已完成题目数量
+  </div>
+  <button class="submit-btn" id="submitBtn" disabled onclick="calculateResults()">计算我的价值权重 →</button>
+</div>
+
+<div class="results" id="results">
+  <div class="result-header">
+    <h2>你的价值权重向量</h2>
+    <p>基于 PVQ-40 测量结果 · 中心化修正后的相对权重</p>
+  </div>
+  <div id="dimResults"></div>
+  <div class="top-values">
+    <h3>主导价值维度（权重最高）</h3>
+    <ul class="top-list" id="topList"></ul>
+  </div>
+  <div class="vector-box">
+    <h3>权重向量 w_i（可用于模型输入）</h3>
+    <div class="vector-display" id="vectorDisplay"></div>
+  </div>
+  <button class="restart-btn" onclick="restart()">重新作答</button>
+</div>
+
+<script>
+const dimensions = [
+  {
+    name: '自我导向', en: 'Self-Direction',
+    desc: '独立思考、创造、探索',
+    questions: [
+      { id: 1,  text: '对她/他来说，想出新点子、发挥创造力很重要。她/他喜欢用自己独特的方式做事。' },
+      { id: 11, text: '对她/他来说，自己做决定很重要。她/他喜欢自由，不喜欢依赖别人。' },
+      { id: 22, text: '她/他认为自己追求自己的目标很重要，而不是按照别人的期望行事。' },
+      { id: 34, text: '对她/他来说，能够独立思考、形成自己的观点很重要。' },
+    ]
+  },
+  {
+    name: '刺激', en: 'Stimulation',
+    desc: '新奇、挑战、兴奋',
+    questions: [
+      { id: 6,  text: '她/他喜欢冒险，总是在寻求刺激。她/他希望生活充满冒险。' },
+      { id: 15, text: '她/他寻求各种各样的活动。对她/他来说，体验新奇和多样化的事情非常重要。' },
+      { id: 30, text: '她/他喜欢惊喜。有一个充满意外的生活对她/他来说很重要。' },
+    ]
+  },
+  {
+    name: '享乐', en: 'Hedonism',
+    desc: '感官愉悦、即时满足',
+    questions: [
+      { id: 10, text: '享乐对她/他来说很重要。她/他喜欢犒劳自己。' },
+      { id: 25, text: '她/他认为花钱享受生活很重要。她/他希望能够享受生活中的美好事物。' },
+      { id: 26, text: '她/他认为尽情享受生活中的乐趣很重要。她/他喜欢纵容自己。' },
+    ]
+  },
+  {
+    name: '成就', en: 'Achievement',
+    desc: '个人成功、能力展示',
+    questions: [
+      { id: 4,  text: '对她/他来说，展示自己的能力很重要。她/他希望别人认可她/他的成就。' },
+      { id: 13, text: '对她/他来说，在生活中取得成功很重要。她/他希望自己的能力得到社会的认可。' },
+      { id: 24, text: '她/他认为雄心壮志很重要。她/他希望比别人做得更好。' },
+      { id: 32, text: '对她/他来说，成为一个非常成功的人很重要。她/他希望别人尊重她/他的成就。' },
+    ]
+  },
+  {
+    name: '权力', en: 'Power',
+    desc: '社会地位、对他人的控制',
+    questions: [
+      { id: 2,  text: '对她/他来说，有钱有势很重要。她/他希望别人尊重自己所拥有的。' },
+      { id: 17, text: '对她/他来说，被别人尊重很重要。她/他希望别人按照她/他说的去做。' },
+      { id: 39, text: '她/他认为拥有权力、能够让别人做自己想要的事很重要。' },
+    ]
+  },
+  {
+    name: '安全', en: 'Security',
+    desc: '社会秩序、个人安全稳定',
+    questions: [
+      { id: 5,  text: '对她/他来说，生活在一个安全的环境中很重要。她/他努力避免任何可能威胁安全的事情。' },
+      { id: 14, text: '对她/他来说，国家的强大很重要，这样她/他的政府才能保护公民免受各种威胁。' },
+      { id: 21, text: '对她/他来说，事情井然有序很重要。她/他不喜欢混乱，总是喜欢保持整洁。' },
+      { id: 31, text: '她/他努力保护自身安全。她/他认为避免任何可能令自己受伤的事情很重要。' },
+      { id: 37, text: '对她/他来说，稳定的政府很重要，这样保持公共秩序并阻止混乱。' },
+    ]
+  },
+  {
+    name: '顺从', en: 'Conformity',
+    desc: '克制冲动、遵守规范',
+    questions: [
+      { id: 9,  text: '对她/他来说，表现良好很重要。她/他总是力求避免做任何人们会说她/他做错的事。' },
+      { id: 20, text: '对她/他来说，遵守规则很重要，即使没有人在看着。' },
+      { id: 35, text: '在任何情况下都遵守法律法规对她/他来说很重要，即使没有人监督。' },
+      { id: 38, text: '对她/他来说，在任何情况下都要表现得体面很重要。她/他总是努力遵守礼仪规范。' },
+    ]
+  },
+  {
+    name: '传统', en: 'Tradition',
+    desc: '尊重文化、宗教传统',
+    questions: [
+      { id: 7,  text: '她/他认为按照家庭传统行事很重要，即使不同意某些东西，她/他也尊重这些传统。' },
+      { id: 16, text: '对她/他来说，按照宗教信仰或其所在文化的传统行事很重要。' },
+      { id: 28, text: '她/他认为谦逊和简朴很重要，她/他尽量不引人注意。' },
+      { id: 36, text: '她/他认为尊重传统很重要，她/他想保留代代相传的习俗。' },
+    ]
+  },
+  {
+    name: '仁慈', en: 'Benevolence',
+    desc: '关心身边人的福祉',
+    questions: [
+      { id: 12, text: '对她/他来说，帮助身边的人很重要，关注他们的幸福对她/他而言至关重要。' },
+      { id: 18, text: '对她/他来说，忠于朋友很重要。她/他致力于帮助身边关心的人。' },
+      { id: 27, text: '对她/他来说，回应他人的需求很重要，她/他总是竭力帮助身边的人。' },
+      { id: 33, text: '宽恕生活中伤害过她/他的人对她/他来说很重要，她/他努力以善待人。' },
+    ]
+  },
+  {
+    name: '普世主义', en: 'Universalism',
+    desc: '理解、欣赏、保护所有人与自然',
+    questions: [
+      { id: 3,  text: '她/他认为所有人都应该被平等对待。她/他相信每个人都应该有平等的机会。' },
+      { id: 8,  text: '倾听与自己不同的人的意见对她/他来说很重要，即使她/他不同意这些人的观点。' },
+      { id: 19, text: '她/他认为保护环境非常重要，关心自然和地球对她/他来说很重要。' },
+      { id: 23, text: '她/他相信所有世界人民都应该和平共处，促进世界和平对她/他来说很重要。' },
+      { id: 29, text: '她/他希望所有人都能被公正对待，即使是陌生人。她/他认为保护弱势群体很重要。' },
+      { id: 40, text: '照顾好自然环境对她/他来说很重要，她/他认为我们应该保护环境。' },
+    ]
+  },
+];
+
+let answers = {};
+let totalQuestions = 40;
+
+function buildQuestions() {
+  const container = document.getElementById('questionsContainer');
+  let qIndex = 0;
+  dimensions.forEach((dim, di) => {
+    const header = document.createElement('div');
+    header.className = 'dimension-header';
+    header.innerHTML = `
+      <span class="dim-num">D${String(di+1).padStart(2,'0')}</span>
+      <span class="dim-name">${dim.name}</span>
+      <span class="dim-desc">${dim.en}</span>
+    `;
+    container.appendChild(header);
+
+    dim.questions.forEach(q => {
+      qIndex++;
+      const card = document.createElement('div');
+      card.className = 'question-card';
+      card.id = `card-${q.id}`;
+
+      let btns = '';
+      for (let v = 1; v <= 6; v++) {
+        btns += `<button class="scale-btn" data-q="${q.id}" data-v="${v}" onclick="selectAnswer(${q.id}, ${v}, this)">${v}</button>`;
+      }
+
+      card.innerHTML = `
+        <div class="q-num">Q${String(qIndex).padStart(2,'0')} · ${dim.name}</div>
+        <div class="q-text">${q.text}</div>
+        <div class="scale">${btns}</div>
+        <div class="scale-labels">
+          <span class="scale-label-text">一点都不像我</span>
+          <span class="scale-label-text">非常像我</span>
+        </div>
+      `;
+      container.appendChild(card);
+    });
+  });
+}
+
+function selectAnswer(qId, val, btn) {
+  // clear previous selection in same question
+  document.querySelectorAll(`[data-q="${qId}"]`).forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  answers[qId] = val;
+
+  const card = document.getElementById(`card-${qId}`);
+  card.classList.add('answered');
+
+  const count = Object.keys(answers).length;
+  document.getElementById('answeredCount').textContent = count;
+  document.getElementById('progressFill').style.width = (count / totalQuestions * 100) + '%';
+  document.getElementById('submitBtn').disabled = count < totalQuestions;
+}
+
+function calculateResults() {
+  // compute per-dimension means
+  const dimScores = dimensions.map(dim => {
+    const vals = dim.questions.map(q => answers[q.id]);
+    const mean = vals.reduce((a,b) => a+b, 0) / vals.length;
+    return { name: dim.name, en: dim.en, desc: dim.desc, raw: mean };
+  });
+
+  // grand mean for centering
+  const allVals = Object.values(answers);
+  const grandMean = allVals.reduce((a,b) => a+b, 0) / allVals.length;
+
+  // centered weights
+  dimScores.forEach(d => {
+    d.centered = parseFloat((d.raw - grandMean).toFixed(3));
+  });
+
+  // sort for ranking
+  const sorted = [...dimScores].sort((a,b) => b.centered - a.centered);
+
+  // render
+  const container = document.getElementById('dimResults');
+  container.innerHTML = '';
+
+  const maxAbs = Math.max(...dimScores.map(d => Math.abs(d.centered)));
+
+  dimScores.forEach(d => {
+    const pct = Math.abs(d.centered) / maxAbs * 100;
+    const isPos = d.centered >= 0;
+    const row = document.createElement('div');
+    row.className = 'dim-result';
+    row.innerHTML = `
+      <div>
+        <div class="dr-name">${d.name}</div>
+        <div class="dr-name-en">${d.en}</div>
+      </div>
+      <div class="dr-bar-wrap">
+        <div class="dr-bar ${isPos ? '' : 'negative'}" style="width:${pct}%"></div>
+      </div>
+      <div class="dr-raw">${d.raw.toFixed(2)}</div>
+      <div class="dr-centered ${isPos ? 'pos' : 'neg'}">${isPos ? '+' : ''}${d.centered.toFixed(3)}</div>
+    `;
+    container.appendChild(row);
+  });
+
+  // top values
+  const topList = document.getElementById('topList');
+  topList.innerHTML = '';
+  sorted.slice(0, 5).forEach((d, i) => {
+    const li = document.createElement('li');
+    li.innerHTML = `<span class="rank-num">#${i+1}</span>${d.name} <span style="font-family:'DM Mono',monospace;font-size:12px;color:var(--text3);margin-left:auto">${d.en} · ${d.centered >= 0 ? '+' : ''}${d.centered.toFixed(3)}</span>`;
+    topList.appendChild(li);
+  });
+
+  // vector display
+  const vecArr = dimScores.map(d => d.centered.toFixed(3));
+  document.getElementById('vectorDisplay').innerHTML =
+    `w_i = (${vecArr.join(',  ')})<br><br>` +
+    `维度顺序：自我导向, 刺激, 享乐, 成就, 权力, 安全, 顺从, 传统, 仁慈, 普世主义<br><br>` +
+    `总均值（中心化基准）：${grandMean.toFixed(3)}`;
+
+  // show results
+  document.getElementById('results').classList.add('show');
+  document.getElementById('results').scrollIntoView({ behavior: 'smooth' });
+}
+
+function restart() {
+  answers = {};
+  document.getElementById('answeredCount').textContent = '0';
+  document.getElementById('progressFill').style.width = '0%';
+  document.getElementById('submitBtn').disabled = true;
+  document.querySelectorAll('.scale-btn').forEach(b => b.classList.remove('selected'));
+  document.querySelectorAll('.question-card').forEach(c => c.classList.remove('answered'));
+  document.getElementById('results').classList.remove('show');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+buildQuestions();
+</script>
+</body>
+</html>

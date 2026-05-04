@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>主观价值计算器 · U_i(x)</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=DM+Mono:wght@400;500&display=swap');
+  :root {
+    --bg:#0f0f0f; --surface:#181818; --surface2:#222222;
+    --border:#2a2a2a; --accent:#c8a96e; --accent2:#8fb8a0;
+    --text:#e8e4dc; --text2:#9a9690; --text3:#5a5650;
+    --danger:#c06060;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:'Noto Serif SC',serif;min-height:100vh;}
+
+  /* ── layout ── */
+  .header{border-bottom:1px solid var(--border);padding:48px 60px 40px;}
+  .header-label{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:.2em;color:var(--accent2);text-transform:uppercase;margin-bottom:16px;}
+  .header h1{font-size:30px;font-weight:700;margin-bottom:10px;}
+  .header p{font-size:14px;color:var(--text2);line-height:1.7;max-width:600px;}
+
+  .progress-bar{height:2px;background:var(--border);position:sticky;top:0;z-index:100;}
+  .progress-fill{height:100%;background:var(--accent);transition:width .4s;}
+
+  section{padding:40px 60px;}
+  section+section{padding-top:0;}
+
+  .section-label{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.18em;color:var(--text3);text-transform:uppercase;margin-bottom:20px;}
+
+  /* ── wi input ── */
+  .wi-box{padding:24px 28px;background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--accent);}
+  .wi-box p{font-size:13px;color:var(--text2);margin-bottom:14px;line-height:1.7;}
+  .wi-input{width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--accent);font-family:'DM Mono',monospace;font-size:13px;padding:12px 16px;outline:none;transition:border-color .2s;}
+  .wi-input:focus{border-color:var(--accent);}
+  .wi-input::placeholder{color:var(--text3);}
+  .wi-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px;}
+  .wi-tag{font-family:'DM Mono',monospace;font-size:10px;padding:4px 8px;border:1px solid var(--border);}
+  .wi-tag.pos{border-color:var(--accent2);color:var(--accent2);}
+  .wi-tag.neg{border-color:var(--danger);color:var(--danger);}
+
+  /* ── cost sensitivity ── */
+  .cost-box{padding:24px 28px;background:var(--surface);border:1px solid var(--border);}
+  .cost-q{font-size:15px;color:var(--text);margin-bottom:16px;line-height:1.6;}
+  .likert{display:flex;gap:6px;}
+  .likert-btn{flex:1;height:36px;background:var(--surface2);border:1px solid var(--border);color:var(--text3);font-family:'DM Mono',monospace;font-size:12px;cursor:pointer;transition:all .15s;}
+  .likert-btn:hover{border-color:var(--accent);color:var(--accent);}
+  .likert-btn.sel{background:var(--accent);border-color:var(--accent);color:var(--bg);}
+  .likert-labels{display:flex;justify-content:space-between;margin-top:6px;}
+  .likert-label{font-family:'DM Mono',monospace;font-size:9px;color:var(--text3);}
+  .ci-display{margin-top:16px;font-family:'DM Mono',monospace;font-size:13px;color:var(--text2);}
+  .ci-display span{color:var(--accent);font-size:16px;}
+
+  /* ── items ── */
+  .item-card{background:var(--surface);border:1px solid var(--border);margin-bottom:12px;overflow:hidden;}
+  .item-header{display:flex;align-items:center;gap:16px;padding:18px 24px;cursor:pointer;transition:background .15s;}
+  .item-header:hover{background:var(--surface2);}
+  .item-num{font-family:'DM Mono',monospace;font-size:10px;color:var(--text3);min-width:28px;}
+  .item-name{font-size:15px;color:var(--text);flex:1;}
+  .item-tag{font-family:'DM Mono',monospace;font-size:10px;color:var(--text3);}
+  .item-score-preview{font-family:'DM Mono',monospace;font-size:13px;color:var(--text3);margin-left:auto;white-space:nowrap;}
+  .item-score-preview.done{color:var(--accent2);}
+  .chevron{font-size:10px;color:var(--text3);margin-left:8px;transition:transform .2s;}
+  .chevron.open{transform:rotate(180deg);}
+
+  .item-body{display:none;padding:0 24px 20px;border-top:1px solid var(--border);}
+  .item-body.open{display:block;}
+
+  /* v(x) sliders */
+  .dim-sliders{margin-bottom:20px;}
+  .dim-slider-row{display:grid;grid-template-columns:88px 1fr 32px;align-items:center;gap:12px;margin-bottom:8px;}
+  .dim-label{font-family:'DM Mono',monospace;font-size:10px;color:var(--text3);}
+  input[type=range]{
+    -webkit-appearance:none;width:100%;height:3px;
+    background:var(--border);outline:none;cursor:pointer;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;width:14px;height:14px;
+    border-radius:50%;background:var(--accent);cursor:pointer;
+  }
+  .dim-val{font-family:'DM Mono',monospace;font-size:11px;color:var(--accent);text-align:right;}
+
+  .effort-row{display:grid;grid-template-columns:88px 1fr 32px;align-items:center;gap:12px;padding-top:12px;border-top:1px solid var(--border);}
+  .effort-label{font-family:'DM Mono',monospace;font-size:10px;color:var(--danger);}
+  .effort-val{font-family:'DM Mono',monospace;font-size:11px;color:var(--danger);text-align:right;}
+  input.effort-range::-webkit-slider-thumb{background:var(--danger) !important;}
+
+  /* U_i preview per card */
+  .ui-preview{margin-top:14px;padding:12px 16px;background:var(--surface2);border:1px solid var(--border);font-family:'DM Mono',monospace;font-size:12px;color:var(--text2);}
+  .ui-val{font-size:18px;color:var(--accent);margin-right:8px;}
+  .ui-val.neg{color:var(--danger);}
+
+  /* submit */
+  .submit-area{margin:0 60px 40px;padding:24px 28px;background:var(--surface);border:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:20px;}
+  .submit-info{font-size:13px;color:var(--text2);}
+  .done-count{font-family:'DM Mono',monospace;font-size:28px;color:var(--accent2);margin-bottom:4px;}
+  .calc-btn{padding:14px 40px;background:var(--accent2);border:none;color:var(--bg);font-family:'Noto Serif SC',serif;font-size:15px;font-weight:600;cursor:pointer;transition:opacity .2s;white-space:nowrap;}
+  .calc-btn:hover{opacity:.85;}
+  .calc-btn:disabled{opacity:.3;cursor:not-allowed;}
+
+  /* results */
+  .results{display:none;padding:40px 60px 80px;}
+  .results.show{display:block;}
+  .results h2{font-size:24px;margin-bottom:8px;}
+  .results-sub{font-family:'DM Mono',monospace;font-size:11px;color:var(--text3);margin-bottom:40px;letter-spacing:.1em;}
+
+  /* ranking */
+  .ranking{margin-bottom:40px;}
+  .rank-item{display:grid;grid-template-columns:36px 1fr 80px 100px 80px;align-items:center;gap:16px;padding:14px 0;border-bottom:1px solid var(--border);}
+  .rank-item:first-child{border-top:1px solid var(--border);}
+  .rank-num{font-family:'DM Mono',monospace;font-size:12px;color:var(--text3);}
+  .rank-name{font-size:14px;color:var(--text);}
+  .rank-benefit{font-family:'DM Mono',monospace;font-size:12px;color:var(--accent2);}
+  .rank-cost{font-family:'DM Mono',monospace;font-size:12px;color:var(--danger);}
+  .rank-net{font-family:'DM Mono',monospace;font-size:15px;font-weight:500;}
+  .rank-net.pos{color:var(--accent);}
+  .rank-net.neg{color:var(--danger);}
+  .rank-bar-wrap{height:4px;background:var(--border);margin-top:4px;}
+  .rank-bar{height:100%;background:var(--accent);}
+  .rank-bar.neg-bar{background:var(--danger);}
+
+  /* stats */
+  .stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:40px;}
+  .stat-box{padding:20px;background:var(--surface);border:1px solid var(--border);}
+  .stat-label{font-family:'DM Mono',monospace;font-size:10px;color:var(--text3);letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px;}
+  .stat-val{font-family:'DM Mono',monospace;font-size:26px;color:var(--accent);}
+  .stat-desc{font-size:11px;color:var(--text3);margin-top:4px;}
+
+  /* vector dump */
+  .vector-dump{padding:24px;background:var(--surface2);border:1px solid var(--border);margin-bottom:32px;}
+  .vector-dump h3{font-family:'DM Mono',monospace;font-size:10px;color:var(--text3);letter-spacing:.15em;text-transform:uppercase;margin-bottom:16px;}
+  .vector-dump pre{font-family:'DM Mono',monospace;font-size:11px;color:var(--accent2);line-height:1.9;white-space:pre-wrap;word-break:break-all;}
+
+  .restart-btn{padding:12px 32px;background:transparent;border:1px solid var(--border);color:var(--text2);font-family:'Noto Serif SC',serif;font-size:14px;cursor:pointer;transition:all .2s;}
+  .restart-btn:hover{border-color:var(--text2);color:var(--text);}
+
+  @media(max-width:768px){
+    .header,section,.submit-area,.results{padding-left:20px;padding-right:20px;}
+    .rank-item{grid-template-columns:28px 1fr 60px 60px;}
+    .stats-row{grid-template-columns:repeat(2,1fr);}
+  }
+</style>
+</head>
+<body>
+
+<div class="progress-bar"><div class="progress-fill" id="pFill"></div></div>
+
+<div class="header">
+  <div class="header-label">Step 2 · 主观价值计算器</div>
+  <h1>计算 U<sub>i</sub>(x) = w<sub>i</sub>ᵀ v(x) − c<sub>i</sub> · effort(x)</h1>
+  <p>输入你的权重向量，回答2道成本敏感题，然后微调每件事物的价值向量与行为成本，系统自动计算净主观价值并排名。</p>
+</div>
+
+<!-- Step 1: w_i -->
+<section>
+  <div class="section-label">Step 1 · 输入权重向量 w_i（来自 PVQ-40）</div>
+  <div class="wi-box">
+    <p>从 PVQ-40 结果页面复制权重向量，粘贴到下方（10个数字，逗号分隔）：</p>
+    <input class="wi-input" id="wiInput" type="text"
+      placeholder="例：1.750, 0.083, 1.750, -0.250, -0.583, -0.450, 0.500, -1.000, -0.750, -0.417"
+      oninput="parseWi(this.value)">
+    <div class="wi-tags" id="wiTags"></div>
+  </div>
+</section>
+
+<!-- Step 2: c_i -->
+<section>
+  <div class="section-label">Step 2 · 测量成本敏感系数 c_i</div>
+  <div class="cost-box">
+    <div class="cost-q">你通常愿意为了一件有价值的事付出多大的努力？</div>
+    <div class="likert" id="effortLikert"></div>
+    <div class="likert-labels">
+      <span class="likert-label">完全不愿意</span>
+      <span class="likert-label">非常愿意</span>
+    </div>
+    <div class="ci-display" id="ciDisplay">c_i = <span>—</span>（尚未回答）</div>
+  </div>
+</section>
+
+<!-- Step 3: items -->
+<section>
+  <div class="section-label">Step 3 · 微调每件事物的价值向量与行为成本</div>
+  <p style="font-size:13px;color:var(--text2);margin-bottom:20px;line-height:1.7;">
+    以下数值由 AI 预估，代表「大多数人」对该事物的价值判断。<br>
+    点击展开每张卡片，拖动滑块修正你认为不准确的维度，然后系统自动重算你的主观价值。
+  </p>
+  <div id="itemsContainer"></div>
+</section>
+
+<div class="submit-area">
+  <div class="submit-info">
+    <div class="done-count"><span id="doneCount">0</span> / 25</div>
+    已确认事物（展开即算作确认）
+  </div>
+  <button class="calc-btn" id="calcBtn" disabled onclick="showResults()">查看完整排名 →</button>
+</div>
+
+<!-- Results -->
+<div class="results" id="results">
+  <h2>净主观价值排名</h2>
+  <div class="results-sub">U_i(x) = w_i^T v(x) − c_i · effort(x) · 从高到低排列</div>
+  <div class="stats-row" id="statsRow"></div>
+  <div class="ranking" id="rankingList"></div>
+  <div class="vector-dump">
+    <h3>完整数据输出（用于后续建模）</h3>
+    <pre id="vectorOut"></pre>
+  </div>
+  <button class="restart-btn" onclick="restart()">重新开始</button>
+</div>
+
+<script>
+const DIM_NAMES = ['自我导向','刺激','享乐','成就','权力','安全','顺从','传统','仁慈','普世主义'];
+const DIM_EN    = ['Self-Dir','Stimul','Hedon','Achiev','Power','Secur','Conform','Trad','Benev','Univers'];
+
+const ITEMS_DATA = [
+  {name:"打游戏2小时",tag:"娱乐·即时",v:[4,7,9,2,2,2,2,1,2,1],effort:2},
+  {name:"健身1小时",tag:"身体·成长",v:[5,6,4,7,3,8,5,3,2,4],effort:7},
+  {name:"和朋友聚餐",tag:"社交·享乐",v:[3,5,8,3,3,5,6,5,7,4],effort:3},
+  {name:"读一本专业书",tag:"学习·成长",v:[7,3,2,7,2,4,3,3,2,5],effort:6},
+  {name:"刷短视频1小时",tag:"娱乐·消遣",v:[1,4,7,1,1,2,1,1,1,1],effort:1},
+  {name:"学一门新技能",tag:"自我提升",v:[8,6,3,8,3,5,3,2,2,4],effort:7},
+  {name:"冥想/独处",tag:"内省·安全",v:[7,2,5,2,1,8,2,4,2,5],effort:3},
+  {name:"参加聚会认识新朋友",tag:"社交·刺激",v:[4,7,6,4,4,2,4,2,5,4],effort:5},
+  {name:"完成一个工作项目",tag:"成就·自主",v:[6,4,3,8,5,6,6,3,3,3],effort:8},
+  {name:"和家人通话",tag:"仁慈·安全",v:[3,2,5,2,2,7,6,7,8,4],effort:2},
+  {name:"看一部好电影",tag:"享乐·刺激",v:[3,6,8,2,1,4,2,2,2,3],effort:2},
+  {name:"做志愿者/帮助他人",tag:"仁慈·普世",v:[4,3,3,5,2,4,7,5,9,8],effort:6},
+  {name:"整理房间",tag:"顺从·安全",v:[3,2,3,4,1,8,7,4,2,2],effort:5},
+  {name:"写日记/反思",tag:"自我导向",v:[8,2,3,4,1,5,2,3,2,3],effort:3},
+  {name:"出去旅行",tag:"刺激·享乐",v:[6,9,8,4,3,2,2,3,4,6],effort:7},
+  {name:"早睡早起保持规律",tag:"顺从·安全",v:[3,1,3,4,1,9,8,6,2,3],effort:6},
+  {name:"完成一件拖延很久的事",tag:"成就·顺从",v:[5,3,3,8,3,7,7,3,2,2],effort:7},
+  {name:"深度聊天聊到共鸣",tag:"自我导向·社交",v:[8,5,7,3,2,5,3,2,7,5],effort:4},
+  {name:"尝试一件从没做过的事",tag:"刺激·自主",v:[7,9,6,5,2,2,2,1,2,4],effort:6},
+  {name:"赚到一笔额外收入",tag:"成就·安全",v:[4,4,6,8,6,8,3,3,2,2],effort:7},
+  {name:"创作一件艺术作品",tag:"自我导向·享乐",v:[9,6,7,5,2,3,2,3,3,5],effort:6},
+  {name:"公开演讲/分享",tag:"成就·权力",v:[6,6,3,8,7,3,4,3,4,4],effort:8},
+  {name:"独自完成一次旅行计划",tag:"自我导向·刺激",v:[8,7,6,6,2,3,3,2,2,4],effort:6},
+  {name:"参与社区或团队活动",tag:"仁慈·顺从",v:[3,4,4,4,3,5,7,5,7,6],effort:5},
+  {name:"给自己买一件喜欢的东西",tag:"享乐·权力",v:[4,4,9,4,5,4,2,2,1,1],effort:2},
+];
+
+// deep copy so sliders don't mutate originals
+let items = ITEMS_DATA.map(d => ({...d, v:[...d.v], effort:d.effort}));
+
+let wi = null;
+let ci = null;
+let opened = new Set();
+
+// ── w_i ───────────────────────────────────────────────
+function parseWi(val) {
+  const nums = val.split(/[,，\s]+/).map(s=>parseFloat(s.trim())).filter(n=>!isNaN(n));
+  const tags = document.getElementById('wiTags');
+  tags.innerHTML = '';
+  if (nums.length === 10) {
+    wi = nums;
+    nums.forEach((n,i) => {
+      const s = document.createElement('span');
+      s.className = 'wi-tag '+(n>=0?'pos':'neg');
+      s.textContent = `${DIM_NAMES[i]}: ${n>=0?'+':''}${n.toFixed(3)}`;
+      tags.appendChild(s);
+    });
+  } else {
+    wi = null;
+    if (val.trim()) tags.innerHTML = `<span style="color:var(--danger);font-family:'DM Mono',monospace;font-size:11px">需要10个数字，当前 ${nums.length} 个</span>`;
+  }
+  checkReady(); updateAllUi();
+}
+
+// ── c_i ───────────────────────────────────────────────
+function buildCostQuestion() {
+  const likert = document.getElementById('effortLikert');
+  for (let v=1;v<=10;v++) {
+    const btn = document.createElement('button');
+    btn.className='likert-btn'; btn.textContent=v;
+    btn.onclick = () => {
+      document.querySelectorAll('.likert-btn').forEach(b=>b.classList.remove('sel'));
+      btn.classList.add('sel');
+      // willingness: high = low c_i; low = high c_i
+      ci = parseFloat(((10-v)/9).toFixed(3)); // maps 1→1.0, 10→0.0
+      document.getElementById('ciDisplay').innerHTML =
+        `c_i = <span>${ci.toFixed(3)}</span>（愿意程度 ${v}/10 → 成本敏感系数 ${ci.toFixed(3)}）`;
+      checkReady(); updateAllUi();
+    };
+    likert.appendChild(btn);
+  }
+}
+
+// ── compute U_i(x) ────────────────────────────────────
+function computeUi(itemIdx) {
+  if (!wi || ci === null) return null;
+  const item = items[itemIdx];
+  const benefit = wi.reduce((s,w,d) => s + w * item.v[d], 0);
+  const cost = ci * item.effort;
+  return { benefit, cost, net: benefit - cost };
+}
+
+// ── build items ───────────────────────────────────────
+function buildItems() {
+  const container = document.getElementById('itemsContainer');
+  items.forEach((item, idx) => {
+    const card = document.createElement('div');
+    card.className = 'item-card';
+    card.id = `card-${idx}`;
+
+    // header
+    const header = document.createElement('div');
+    header.className = 'item-header';
+    header.innerHTML = `
+      <span class="item-num">${String(idx+1).padStart(2,'0')}</span>
+      <span class="item-name">${item.name}</span>
+      <span class="item-tag">${item.tag}</span>
+      <span class="item-score-preview" id="preview-${idx}">点击展开</span>
+      <span class="chevron" id="chev-${idx}">▼</span>
+    `;
+    header.onclick = () => toggleCard(idx);
+    card.appendChild(header);
+
+    // body
+    const body = document.createElement('div');
+    body.className = 'item-body';
+    body.id = `body-${idx}`;
+
+    let sliders = '<div class="dim-sliders">';
+    DIM_NAMES.forEach((dim,d) => {
+      sliders += `
+        <div class="dim-slider-row">
+          <span class="dim-label">${dim}</span>
+          <input type="range" min="1" max="10" value="${item.v[d]}"
+            oninput="updateDim(${idx},${d},this.value)">
+          <span class="dim-val" id="dv-${idx}-${d}">${item.v[d]}</span>
+        </div>`;
+    });
+    sliders += '</div>';
+
+    const effortSlider = `
+      <div class="effort-row">
+        <span class="effort-label">行为成本</span>
+        <input type="range" class="effort-range" min="1" max="10" value="${item.effort}"
+          oninput="updateEffort(${idx},this.value)"
+          style="accent-color:var(--danger)">
+        <span class="effort-val" id="ev-${idx}">${item.effort}</span>
+      </div>`;
+
+    const uiPreview = `<div class="ui-preview" id="uip-${idx}">请先输入 w_i 和 c_i</div>`;
+
+    body.innerHTML = sliders + effortSlider + uiPreview;
+    card.appendChild(body);
+    container.appendChild(card);
+  });
+}
+
+function toggleCard(idx) {
+  const body = document.getElementById(`body-${idx}`);
+  const chev = document.getElementById(`chev-${idx}`);
+  const isOpen = body.classList.contains('open');
+  body.classList.toggle('open', !isOpen);
+  chev.classList.toggle('open', !isOpen);
+  if (!isOpen) {
+    opened.add(idx);
+    document.getElementById('doneCount').textContent = opened.size;
+    updateProgress();
+    updateUiPreview(idx);
+    checkReady();
+  }
+}
+
+function updateDim(idx, d, val) {
+  items[idx].v[d] = parseInt(val);
+  document.getElementById(`dv-${idx}-${d}`).textContent = val;
+  updateUiPreview(idx);
+  updatePreviewLabel(idx);
+}
+
+function updateEffort(idx, val) {
+  items[idx].effort = parseInt(val);
+  document.getElementById(`ev-${idx}`).textContent = val;
+  updateUiPreview(idx);
+  updatePreviewLabel(idx);
+}
+
+function updateUiPreview(idx) {
+  const res = computeUi(idx);
+  const el = document.getElementById(`uip-${idx}`);
+  if (!res) { el.textContent = '请先输入 w_i 和 c_i'; return; }
+  const netCls = res.net >= 0 ? '' : 'neg';
+  el.innerHTML = `
+    <span class="ui-val ${netCls}">${res.net.toFixed(2)}</span> 净主观价值
+    &nbsp;·&nbsp; 效益 <span style="color:var(--accent2)">${res.benefit.toFixed(2)}</span>
+    &nbsp;−&nbsp; 成本 <span style="color:var(--danger)">${res.cost.toFixed(2)}</span>
+  `;
+}
+
+function updatePreviewLabel(idx) {
+  const res = computeUi(idx);
+  const el = document.getElementById(`preview-${idx}`);
+  if (!res) return;
+  el.textContent = `U = ${res.net.toFixed(2)}`;
+  el.className = 'item-score-preview done';
+}
+
+function updateAllUi() {
+  items.forEach((_, idx) => {
+    updateUiPreview(idx);
+    if (opened.has(idx)) updatePreviewLabel(idx);
+  });
+}
+
+function updateProgress() {
+  document.getElementById('pFill').style.width = (opened.size/25*100)+'%';
+}
+
+function checkReady() {
+  document.getElementById('calcBtn').disabled = !(wi && ci !== null && opened.size >= 25);
+}
+
+// ── results ───────────────────────────────────────────
+function showResults() {
+  const results = items.map((item, idx) => {
+    const r = computeUi(idx);
+    return { name: item.name, tag: item.tag, ...r };
+  }).sort((a,b) => b.net - a.net);
+
+  const maxNet = Math.max(...results.map(r => Math.abs(r.net)));
+  const posCount = results.filter(r => r.net > 0).length;
+  const avgNet = results.reduce((s,r) => s+r.net, 0) / results.length;
+  const topItem = results[0];
+
+  // stats
+  document.getElementById('statsRow').innerHTML = `
+    <div class="stat-box">
+      <div class="stat-label">正向事物数</div>
+      <div class="stat-val">${posCount}</div>
+      <div class="stat-desc">U_i(x) > 0 的事物</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-label">平均净价值</div>
+      <div class="stat-val">${avgNet.toFixed(1)}</div>
+      <div class="stat-desc">所有事物均值</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-label">c_i</div>
+      <div class="stat-val">${ci.toFixed(3)}</div>
+      <div class="stat-desc">你的成本敏感系数</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-label">最高价值</div>
+      <div class="stat-val">${topItem.net.toFixed(1)}</div>
+      <div class="stat-desc">${topItem.name}</div>
+    </div>
+  `;
+
+  // ranking
+  const list = document.getElementById('rankingList');
+  list.innerHTML = '';
+  results.forEach((r, i) => {
+    const pct = Math.abs(r.net)/maxNet*100;
+    const isPos = r.net >= 0;
+    const row = document.createElement('div');
+    row.className = 'rank-item';
+    row.innerHTML = `
+      <div>
+        <div class="rank-num">#${i+1}</div>
+      </div>
+      <div>
+        <div class="rank-name">${r.name}</div>
+        <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text3)">${r.tag}</div>
+        <div class="rank-bar-wrap"><div class="rank-bar ${isPos?'':'neg-bar'}" style="width:${pct}%"></div></div>
+      </div>
+      <div class="rank-benefit">+${r.benefit.toFixed(1)}</div>
+      <div class="rank-cost">−${r.cost.toFixed(1)}</div>
+      <div class="rank-net ${isPos?'pos':'neg'}">${isPos?'+':''}${r.net.toFixed(2)}</div>
+    `;
+    list.appendChild(row);
+  });
+
+  // vector dump
+  let out = `w_i = [${wi.map(v=>v.toFixed(3)).join(', ')}]\n`;
+  out += `c_i = ${ci.toFixed(3)}\n\n`;
+  out += `维度顺序：${DIM_NAMES.join('，')}\n\n`;
+  items.forEach((item,idx) => {
+    const r = computeUi(idx);
+    out += `${item.name}\n`;
+    out += `  v(x) = [${item.v.join(', ')}]\n`;
+    out += `  effort = ${item.effort}\n`;
+    out += `  U_i(x) = ${r.net.toFixed(3)} (效益${r.benefit.toFixed(3)} − 成本${r.cost.toFixed(3)})\n\n`;
+  });
+  document.getElementById('vectorOut').textContent = out;
+
+  document.getElementById('results').classList.add('show');
+  document.getElementById('results').scrollIntoView({behavior:'smooth'});
+}
+
+function restart() {
+  items = ITEMS_DATA.map(d => ({...d, v:[...d.v], effort:d.effort}));
+  wi = null; ci = null; opened.clear();
+  document.getElementById('wiInput').value = '';
+  document.getElementById('wiTags').innerHTML = '';
+  document.getElementById('ciDisplay').innerHTML = 'c_i = <span>—</span>（尚未回答）';
+  document.querySelectorAll('.likert-btn').forEach(b=>b.classList.remove('sel'));
+  document.getElementById('doneCount').textContent = '0';
+  document.getElementById('pFill').style.width = '0%';
+  document.getElementById('calcBtn').disabled = true;
+  document.getElementById('results').classList.remove('show');
+  document.getElementById('itemsContainer').innerHTML = '';
+  buildItems();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+buildCostQuestion();
+buildItems();
+
+// auto-fill w_i from URL hash
+const hash = location.hash.slice(1);
+if (hash) {
+  const inp = document.getElementById('wiInput');
+  inp.value = decodeURIComponent(hash);
+  parseWi(decodeURIComponent(hash));
+}
+</script>
+</body>
+</html>
