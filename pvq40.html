@@ -384,6 +384,54 @@
     word-break: break-all;
   }
 
+  .profile-section {
+    margin-top: 20px;
+  }
+
+  .profile-btn {
+    margin-top: 16px;
+    padding: 12px 28px;
+    background: var(--accent2);
+    border: none;
+    color: var(--bg);
+    font-family: 'Noto Serif SC', serif;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    letter-spacing: 0.04em;
+    transition: opacity 0.2s, transform 0.05s;
+  }
+  .profile-btn:hover { opacity: 0.9; }
+  .profile-btn:active { transform: translateY(1px); }
+  .profile-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  .profile-card {
+    margin-top: 14px;
+    padding: 18px 18px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent2);
+  }
+  .profile-card-title {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    color: var(--accent2);
+    margin-bottom: 10px;
+    text-transform: uppercase;
+  }
+  .profile-card-body {
+    font-size: 14px;
+    color: var(--text);
+    line-height: 1.85;
+    white-space: pre-wrap;
+  }
+  .profile-card-body.muted {
+    color: var(--text2);
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+  }
+
   .restart-btn {
     margin-top: 32px;
     padding: 12px 32px;
@@ -452,6 +500,14 @@
   <div class="vector-box">
     <h3>权重向量 w_i（可用于模型输入）</h3>
     <div class="vector-display" id="vectorDisplay"></div>
+
+    <div class="profile-section">
+      <button class="profile-btn" id="generateProfileBtn" onclick="generateProfile()" disabled>生成我的价值画像</button>
+      <div class="profile-card" id="profileCard" style="display:none;">
+        <div class="profile-card-title">VALUE PORTRAIT</div>
+        <div class="profile-card-body muted" id="profileContent">准备就绪：点击上面的按钮生成你的价值画像。</div>
+      </div>
+    </div>
   </div>
   <button class="restart-btn" onclick="restart()">重新作答</button>
 </div>
@@ -562,6 +618,7 @@ const dimensions = [
 
 let answers = {};
 let totalQuestions = 40;
+let lastVector = null; // centered weights in dimension order
 
 function buildQuestions() {
   const container = document.getElementById('questionsContainer');
@@ -633,6 +690,8 @@ function calculateResults() {
     d.centered = parseFloat((d.raw - grandMean).toFixed(3));
   });
 
+  lastVector = dimScores.map(d => d.centered);
+
   // sort for ranking
   const sorted = [...dimScores].sort((a,b) => b.centered - a.centered);
 
@@ -677,19 +736,105 @@ function calculateResults() {
     `维度顺序：自我导向, 刺激, 享乐, 成就, 权力, 安全, 顺从, 传统, 仁慈, 普世主义<br><br>` +
     `总均值（中心化基准）：${grandMean.toFixed(3)}`;
 
+  // enable profile generation UI
+  const btn = document.getElementById('generateProfileBtn');
+  const card = document.getElementById('profileCard');
+  const content = document.getElementById('profileContent');
+  if (btn && card && content) {
+    btn.disabled = false;
+    card.style.display = 'block';
+    content.classList.add('muted');
+    content.textContent = '准备就绪：点击上面的按钮生成你的价值画像。';
+  }
+
   // show results
   document.getElementById('results').classList.add('show');
   document.getElementById('results').scrollIntoView({ behavior: 'smooth' });
 }
 
+async function generateProfile() {
+  const btn = document.getElementById('generateProfileBtn');
+  const card = document.getElementById('profileCard');
+  const content = document.getElementById('profileContent');
+
+  if (!btn || !card || !content) return;
+  if (!Array.isArray(lastVector) || lastVector.length !== 10) {
+    card.style.display = 'block';
+    content.classList.remove('muted');
+    content.textContent = '未找到可用的权重向量。请先完成问卷并点击“计算我的价值权重”。';
+    return;
+  }
+
+  btn.disabled = true;
+  card.style.display = 'block';
+  content.classList.add('muted');
+  content.textContent = '正在分析你的价值画像...';
+
+  const vecText = lastVector.map(v => Number(v).toFixed(3)).join(', ');
+  const systemPrompt =
+    '你是一个基于Schwartz价值理论的个人价值分析师。用户会给你他们的十维价值权重向量，你需要用中文输出：' +
+    '1.他们的价值画像描述（2-3句话）' +
+    '2.最适合他们的5件具体日常活动（每项附一句原因）' +
+    '3.最不适合他们的5件具体日常活动（每项附一句原因）' +
+    '4.一句话总结他们的价值类型。语气要自然口语化，不要太学术。';
+  const userMsg =
+    `我的Schwartz十维价值权重向量如下（维度顺序：自我导向、刺激、享乐、成就、权力、安全、顺从、传统、仁慈、普世主义）：[${vecText}]。` +
+    '请根据这个权重分析我的价值画像。';
+
+  try {
+    const resp = await fetch('/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 900,
+        system: systemPrompt,
+        messages: [
+          { role: 'user', content: [{ type: 'text', text: userMsg }] }
+        ]
+      })
+    });
+
+    if (!resp.ok) {
+      const errText = await resp.text().catch(() => '');
+      throw new Error(`请求失败（HTTP ${resp.status}）。${errText ? '\n\n' + errText : ''}`);
+    }
+
+    const data = await resp.json();
+    const text = Array.isArray(data?.content)
+      ? data.content.filter(b => b?.type === 'text' && typeof b?.text === 'string').map(b => b.text).join('\n')
+      : '';
+
+    content.classList.remove('muted');
+    content.textContent = text || '已收到返回，但未解析到文本内容。';
+  } catch (e) {
+    content.classList.remove('muted');
+    content.textContent = `生成失败：${e?.message || String(e)}`;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
 function restart() {
   answers = {};
+  lastVector = null;
   document.getElementById('answeredCount').textContent = '0';
   document.getElementById('progressFill').style.width = '0%';
   document.getElementById('submitBtn').disabled = true;
   document.querySelectorAll('.scale-btn').forEach(b => b.classList.remove('selected'));
   document.querySelectorAll('.question-card').forEach(c => c.classList.remove('answered'));
   document.getElementById('results').classList.remove('show');
+
+  const btn = document.getElementById('generateProfileBtn');
+  const card = document.getElementById('profileCard');
+  const content = document.getElementById('profileContent');
+  if (btn) btn.disabled = true;
+  if (card) card.style.display = 'none';
+  if (content) {
+    content.classList.add('muted');
+    content.textContent = '准备就绪：点击上面的按钮生成你的价值画像。';
+  }
+
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
