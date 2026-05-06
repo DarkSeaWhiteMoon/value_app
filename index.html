@@ -1,29 +1,92 @@
 <!DOCTYPE html>
 <html lang="zh">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>价值坐标系 · Value Coordinate System</title>
-<style>
-  body { background:#0f0f0f; color:#e8e4dc; font-family:'Noto Serif SC',serif;
-         display:flex; flex-direction:column; align-items:center;
-         justify-content:center; min-height:100vh; gap:32px; }
-  h1 { font-size:28px; color:#c8a96e; }
-  p  { font-size:14px; color:#9a9690; max-width:480px; text-align:center; line-height:1.8; }
-  .btns { display:flex; gap:16px; }
-  a { padding:14px 32px; border:1px solid #2a2a2a; color:#e8e4dc;
-      text-decoration:none; font-size:14px; transition:all .2s; }
-  a:hover { border-color:#c8a96e; color:#c8a96e; }
-  a.primary { background:#c8a96e; color:#0f0f0f; border-color:#c8a96e; font-weight:600; }
-  a.primary:hover { opacity:.85; color:#0f0f0f; }
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Value Coordinate System · 价值坐标系</title>
+  <script type="module">
+    import { injectTailwindConfig, navHtml, pageShell } from './app/layout.js';
+    import { loadPvqResult } from './app/storage.js';
+    injectTailwindConfig();
+    window.__navHtml = navHtml;
+    window.__pageShell = pageShell;
+    window.__loadPvqResult = loadPvqResult;
+  </script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 </head>
-<body>
-  <h1>价值坐标系测量工具</h1>
-  <p>基于 Schwartz 十维价值理论与效用函数框架，测量你的个体价值权重向量 w_i，并计算日常事物对你的净主观价值 U_i(x)。</p>
-  <div class="btns">
-    <a class="primary" href="pvq40.html">Step 1 · PVQ-40 问卷</a>
-    <a href="ui_calculator.html">Step 2 · 价值计算器</a>
-  </div>
+<body class="min-h-screen bg-bg text-text font-serif">
+  <div id="app"></div>
+
+  <script type="module">
+    const pvq = window.__loadPvqResult();
+    const has = !!pvq;
+
+    const hero = `
+      <div class="grid gap-6 md:grid-cols-5 md:gap-10 items-start">
+        <div class="md:col-span-3">
+          <div class="inline-flex items-center rounded-full border border-border bg-surface2 px-3 py-1 text-[11px] font-mono text-text3">
+            Schwartz PVQ-40 · Utility-based decision analysis
+          </div>
+          <h2 class="mt-5 text-3xl md:text-4xl font-semibold leading-tight">
+            用一个向量描述你在乎什么，\n            再用一个公式帮你做选择。
+          </h2>
+          <p class="mt-4 text-sm md:text-base leading-7 text-text2">
+            这是一套轻量的个人价值建模工具：先通过 PVQ-40 测量你的十维价值权重向量 <span class="font-mono text-text">w_i</span>，\n
+            再用 \(U_i(x)=w_i^T v(x) - c_i\\cdot effort(x)\) 估计不同选择对你的净主观价值。
+          </p>
+
+          <div class="mt-6 flex flex-col sm:flex-row gap-3">
+            <a href="pvq40.html" class="inline-flex items-center justify-center rounded-lg bg-accent px-5 py-3 font-semibold text-bg hover:opacity-90 transition">
+              开始测量（PVQ-40） →
+            </a>
+            <a href="${has ? 'results.html' : 'pvq40.html'}"
+              class="inline-flex items-center justify-center rounded-lg border border-border bg-surface px-5 py-3 text-text hover:bg-surface2 transition">
+              ${has ? '查看我的结果 / Dashboard' : '先完成问卷再进入 Dashboard'}
+            </a>
+          </div>
+
+          <div class="mt-6 grid grid-cols-2 gap-3 max-w-lg">
+            <div class="rounded-xl border border-border bg-surface p-4 shadow-card">
+              <div class="text-[11px] font-mono text-text3 tracking-[0.14em] uppercase">Output</div>
+              <div class="mt-2 text-sm">你的 <span class="font-mono">w_i ∈ ℝ¹⁰</span></div>
+              <div class="mt-1 text-xs text-text2">Centered relative weights</div>
+            </div>
+            <div class="rounded-xl border border-border bg-surface p-4 shadow-card">
+              <div class="text-[11px] font-mono text-text3 tracking-[0.14em] uppercase">Next</div>
+              <div class="mt-2 text-sm">计算 & 对比 choices</div>
+              <div class="mt-1 text-xs text-text2">Calculator · Compare</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="md:col-span-2">
+          <div class="rounded-2xl border border-border bg-surface p-5 shadow-card">
+            <div class="text-[11px] font-mono text-text3 tracking-[0.18em] uppercase">Status</div>
+            <div class="mt-3 text-sm text-text2 leading-7">
+              ${has
+                ? `已检测到本地结果（<span class="font-mono text-text">${pvq.createdAt}</span>）。你可以直接进入 Results、Calculator、Compare。`
+                : '还没有本地结果。先完成 PVQ-40，系统会把结果暂存到浏览器（localStorage）。'}
+            </div>
+            <div class="mt-4 flex flex-col gap-2">
+              <a class="rounded-lg border border-border bg-surface2 px-4 py-2 text-sm hover:bg-surface transition" href="results.html">Results / Portrait</a>
+              <a class="rounded-lg border border-border bg-surface2 px-4 py-2 text-sm hover:bg-surface transition" href="ui_calculator.html">Subjective Value Calculator</a>
+              <a class="rounded-lg border border-border bg-surface2 px-4 py-2 text-sm hover:bg-surface transition" href="compare.html">Life Choice Comparison</a>
+              <a class="rounded-lg border border-border bg-surface2 px-4 py-2 text-sm hover:bg-surface transition" href="about.html">About / Theory</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.getElementById('app').innerHTML = window.__pageShell({
+      active: 'home',
+      subtitle: 'MVP · Academic-modern assessment dashboard',
+      title: 'Value Coordinate System · 价值坐标系',
+      bodyHtml: hero,
+    });
+  </script>
 </body>
 </html>

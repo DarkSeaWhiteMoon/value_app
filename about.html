@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>About · Theory</title>
+  <script type="module">
+    import { injectTailwindConfig, pageShell } from './app/layout.js';
+    import { valueDimensions, DIM_META } from './app/constants.js';
+    injectTailwindConfig();
+    window.__pageShell = pageShell;
+    window.__valueDimensions = valueDimensions;
+    window.__DIM_META = DIM_META;
+  </script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body class="min-h-screen bg-bg text-text font-serif">
+  <div id="app"></div>
+
+  <script type="module">
+    const rows = window.__valueDimensions.map((id, idx) => {
+      const m = window.__DIM_META[id];
+      return `
+        <tr class="border-b border-border/70">
+          <td class="py-3 pr-3 font-mono text-xs text-text3">D${String(idx+1).padStart(2,'0')}</td>
+          <td class="py-3 pr-3 text-sm font-semibold">${m.zh}</td>
+          <td class="py-3 pr-3 font-mono text-xs text-text3">${m.en}</td>
+          <td class="py-3 text-sm text-text2">${m.descZh}</td>
+        </tr>
+      `;
+    }).join('');
+
+    const body = `
+      <div class="grid gap-6 lg:grid-cols-5">
+        <div class="lg:col-span-3 grid gap-6">
+          <div class="rounded-2xl border border-border bg-surface p-6 shadow-card">
+            <div class="font-mono text-[11px] tracking-[0.18em] uppercase text-text3">Product goal</div>
+            <p class="mt-3 text-sm leading-7 text-text2">
+              Value Coordinate System 的目标是：把“你在乎什么”量化为一个十维向量 <span class="font-mono text-text">w_i</span>，
+              再把具体选项描述成向量 <span class="font-mono text-text">v(x)</span> 与成本 <span class="font-mono text-text">effort(x)</span>，
+              用一个简单、可解释的效用函数去估计你对不同选择的净主观价值。
+            </p>
+          </div>
+
+          <div class="rounded-2xl border border-border bg-surface p-6 shadow-card">
+            <div class="font-mono text-[11px] tracking-[0.18em] uppercase text-text3">Core formula</div>
+            <div class="mt-4 rounded-xl border border-border bg-surface2 p-4 font-mono text-sm text-text">
+              U_i(x) = dot(w_i, v(x)) − c_i · effort(x)
+            </div>
+            <div class="mt-4 grid gap-3 text-sm leading-7 text-text2">
+              <div><span class="font-mono text-text">w_i</span>：你对 10 个价值维度的偏好权重（PVQ-40 测量后中心化）。</div>
+              <div><span class="font-mono text-text">v(x)</span>：选项 x 在每个价值维度上的“满足强度”（可由你手动调节/AI 预估）。</div>
+              <div><span class="font-mono text-text">c_i</span>：成本敏感系数（越大越“怕累/怕付出”）。</div>
+              <div><span class="font-mono text-text">effort(x)</span>：执行这个选项需要的努力/成本。</div>
+            </div>
+          </div>
+
+          <div class="rounded-2xl border border-border bg-surface p-6 shadow-card">
+            <div class="font-mono text-[11px] tracking-[0.18em] uppercase text-text3">How PVQ-40 becomes w_i</div>
+            <p class="mt-3 text-sm leading-7 text-text2">
+              本工具使用 PVQ-40（Portrait Values Questionnaire）对每个价值维度求均值（rawMean），再对 40 题整体均值做中心化：
+              <span class="font-mono text-text">centered = rawMean − grandMean</span>。
+              中心化后的权重更强调“相对偏好”，更适合用于比较不同选择的相对效用。
+            </p>
+          </div>
+        </div>
+
+        <div class="lg:col-span-2 grid gap-6">
+          <div class="rounded-2xl border border-border bg-surface p-6 shadow-card">
+            <div class="font-mono text-[11px] tracking-[0.18em] uppercase text-text3">Schwartz value structure</div>
+            <div class="mt-3 overflow-auto">
+              <table class="w-full border-collapse">
+                <thead>
+                  <tr class="border-b border-border/70">
+                    <th class="py-2 pr-3 text-left font-mono text-[11px] tracking-[0.12em] uppercase text-text3">ID</th>
+                    <th class="py-2 pr-3 text-left font-mono text-[11px] tracking-[0.12em] uppercase text-text3">中文</th>
+                    <th class="py-2 pr-3 text-left font-mono text-[11px] tracking-[0.12em] uppercase text-text3">English</th>
+                    <th class="py-2 text-left font-mono text-[11px] tracking-[0.12em] uppercase text-text3">说明</th>
+                  </tr>
+                </thead>
+                <tbody>${rows}</tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="rounded-2xl border border-border bg-surface p-6 shadow-card">
+            <div class="font-mono text-[11px] tracking-[0.18em] uppercase text-text3">Notes</div>
+            <ul class="mt-3 grid gap-2 text-sm leading-7 text-text2 list-disc pl-5">
+              <li>这是一个 MVP：结果用于自我理解与对比决策，不是临床诊断。</li>
+              <li><span class="font-mono text-text">v(x)</span> 的质量决定比较质量：建议你根据自己的直觉调整滑块。</li>
+              <li>短期状态会影响回答：最好在相对平稳的时间完成问卷。</li>
+            </ul>
+            <div class="mt-5 flex flex-col gap-2">
+              <a href="pvq40.html" class="rounded-lg bg-accent px-5 py-3 font-semibold text-bg hover:opacity-90 transition">去做 PVQ-40 →</a>
+              <a href="results.html" class="rounded-lg border border-border bg-surface2 px-5 py-3 text-text hover:bg-surface transition">查看 Results</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.getElementById('app').innerHTML = window.__pageShell({
+      active: 'about',
+      subtitle: 'Theory · Schwartz values · Utility',
+      title: '关于 / 理论说明',
+      bodyHtml: body,
+    });
+  </script>
+</body>
+</html>
+

@@ -512,6 +512,12 @@
   <button class="restart-btn" onclick="restart()">重新作答</button>
 </div>
 
+<script type="module">
+  import { computePvqResult } from './app/pvq.js';
+  import { savePvqResult } from './app/storage.js';
+  window.__computePvqResult = computePvqResult;
+  window.__savePvqResult = savePvqResult;
+</script>
 <script>
 const dimensions = [
   {
@@ -674,6 +680,16 @@ function selectAnswer(qId, val, btn) {
 }
 
 function calculateResults() {
+  try {
+    const result = window.__computePvqResult(answers);
+    window.__savePvqResult(result);
+    window.location.href = 'results.html';
+    return;
+  } catch (e) {
+    alert(e?.message || String(e));
+    return;
+  }
+
   // compute per-dimension means
   const dimScores = dimensions.map(dim => {
     const vals = dim.questions.map(q => answers[q.id]);

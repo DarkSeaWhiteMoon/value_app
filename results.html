@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Results · Value Portrait</title>
+  <script type="module">
+    import { injectTailwindConfig, navHtml, pageShell } from './app/layout.js';
+    import { loadPvqResult, clearPvqResult } from './app/storage.js';
+    import { valueDimensions, DIM_META } from './app/constants.js';
+    import { generatePortrait } from './app/portrait.js';
+    import { copyToClipboard, downloadText, fmt, htmlEscape } from './app/ui.js';
+    injectTailwindConfig();
+    window.__navHtml = navHtml;
+    window.__pageShell = pageShell;
+    window.__loadPvqResult = loadPvqResult;
+    window.__clearPvqResult = clearPvqResult;
+    window.__valueDimensions = valueDimensions;
+    window.__DIM_META = DIM_META;
+    window.__generatePortrait = generatePortrait;
+    window.__copy = copyToClipboard;
+    window.__download = downloadText;
+    window.__fmt = fmt;
+    window.__esc = htmlEscape;
+  </script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body class="min-h-screen bg-bg text-text font-serif">
+  <div id="app"></div>
+
+  <script type="module">
+    const pvq = window.__loadPvqResult();
+    if (!pvq) {
+      document.getElementById('app').innerHTML = window.__pageShell({
+        active: 'results',
+        subtitle: 'Results',
+        title: '还没有可用的结果',
+        bodyHtml: `
+          <div class="rounded-2xl border border-border bg-surface p-6 shadow-card">
+            <div class="text-sm leading-7 text-text2">
+              你还没完成 PVQ-40，所以暂时没有 <span class="font-mono text-text">w_i</span> 可展示。
+            </div>
+            <div class="mt-5 flex gap-3">
+              <a class="rounded-lg bg-accent px-5 py-3 font-semibold text-bg hover:opacity-90 transition" href="pvq40.html">去做问卷 →</a>
+              <a class="rounded-lg border border-border bg-surface2 px-5 py-3 text-text hover:bg-surface transition" href="index.html">回首页</a>
+            </div>
+          </div>
+        `,
+      });
+      throw new Error('No PVQ result in localStorage');
+    }
+
+    const dims = pvq.dimensions || [];
+    const sorted = [...dims].sort((a, b) => b.centered - a.centered);
+    const top5 = sorted.slice(0, 5);
+    const bottom5 = sorted.slice(-5).reverse();
+    const portrait = window.__generatePortrait(pvq);
+
+    const w = pvq.w_i;
+    const maxAbs = Math.max(...w.map(x => Math.abs(x))) || 1;
+    const labels = window.__valueDimensions.map(id => window.__DIM_META[id].shortEn);
+
+    function radarConfig() {
+      return {
+        type: 'radar',
+        data: {
+          labels,
+          datasets: [{
+            label: 'w_i (centered)',
+            data: w.map(x => Number((x / maxAbs).toFixed(3))),
+            fill: true,
+            borderWidth: 2,
+            borderColor: '#8fb8a0',
+            backgroundColor: 'rgba(143,184,160,0.12)',
+            pointRadius: 2,
+            pointBackgroundColor: '#c8a96e',
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { display: false } },
+          scales: {
+            r: {
+              suggestedMin: -1,
+              suggestedMax: 1,
+              ticks: { display: false },
+              grid: { color: 'rgba(39,48,66,0.7)' },
+              angleLines: { color: 'rgba(39,48,66,0.7)' },
+              pointLabels: { color: '#a7b0bf', font: { size: 11 } }
+            }
+          }
+        }
+      };
+    }
+
+    function rowHtml(d, idx) {
+      const isPos = d.centered >= 0;
+      const pct = Math.abs(d.centered) / (Math.max(...dims.map(x => Math.abs(x.centered))) || 1) * 100;
+      return `
+        <div class="grid grid-cols-12 items-center gap-3 py-3 border-b border-border/70">
+          <div class="col-span-5">
+            <div class="text-sm font-semibold">${window.__esc(d.zh)} <span class="ml-2 font-mono text-xs text-text3">${window.__esc(d.en)}</span></div>
+          </div>
+          <div class="col-span-5">
+            <div class="h-2 rounded-full bg-border/70">
+              <div class="h-2 rounded-full ${isPos ? 'bg-accent2' : 'bg-danger'}" style="width:${pct}%"></div>
+            </div>
+          </div>
+          <div class="col-span-2 text-right font-mono text-sm ${isPos ? 'text-accent2' : 'text-danger'}">
+            ${isPos ? '+' : ''}${window.__fmt(d.centered, 3)}
+          </div>
+        </div>
+      `;
+    }
+
+    const exportObj = {
+      createdAt: pvq.createdAt,
+      valueDimensions: window.__valueDimensions,
+      w_i: pvq.w_i,
+      grandMean: pvq.grandMean,
+      dimensions: pvq.dimensions,
+      top: pvq.top,
+      bottom: pvq.bottom,
+    };
+    const exportJson = JSON.stringify(exportObj, null, 2);
+
+    const body = `
+      <div class="grid gap-6 lg:grid-cols-5">
+        <div class="lg:col-span-3 grid gap-6">
+          <div class="rounded-2xl border border-border bg-surface p-6 shadow-card">
+            <div class="flex items-start justify-between gap-4">
+              <div>
+                <div class="font-mono text-[11px] tracking-[0.18em] uppercase text-text3">Value Weights</div>
+                <div class="mt-2 text-sm text-text2">
+                  Centered relative weights · <span class="font-mono text-text">w_i ∈ ℝ¹⁰</span>
+                </div>
+              </div>
+              <div class="text-right">
+                <div class="font-mono text-[11px] text-text3">createdAt</div>
+                <div class="font-mono text-xs text-text2">${window.__esc(pvq.createdAt)}</div>
+              </div>
+            </div>
+            <div class="mt-5">
+              ${sorted.map(rowHtml).join('')}
+            </div>
+          </div>
+
+          <div class="rounded-2xl border border-border bg-surface p-6 shadow-card">
+            <div class="flex items-center justify-between gap-4">
+              <div>
+                <div class="font-mono text-[11px] tracking-[0.18em] uppercase text-text3">Portrait (rule-based)</div>
+                <div class="mt-2 text-sm text-text2">由 Top/Bottom 维度生成的可用文字画像（不依赖 API）。</div>
+              </div>
+              <button id="clearBtn" class="rounded-lg border border-border bg-surface2 px-4 py-2 text-xs font-mono text-text2 hover:bg-surface transition">Clear local data</button>
+            </div>
+            <div class="mt-5 whitespace-pre-wrap text-sm leading-7 text-text">${window.__esc(portrait.summary)}</div>
+            <div class="mt-5 grid gap-4 md:grid-cols-2">
+              <div class="rounded-xl border border-border bg-surface2 p-4">
+                <div class="font-mono text-[11px] tracking-[0.18em] uppercase text-accent2">Best fits</div>
+                <ul class="mt-3 grid gap-2">
+                  ${portrait.fitActivities.map(x => `<li class="text-sm"><span class="font-semibold">${window.__esc(x.act)}</span><div class="text-xs text-text2 mt-1 leading-6">${window.__esc(x.why)}</div></li>`).join('')}
+                </ul>
+              </div>
+              <div class="rounded-xl border border-border bg-surface2 p-4">
+                <div class="font-mono text-[11px] tracking-[0.18em] uppercase text-danger">Not fits</div>
+                <ul class="mt-3 grid gap-2">
+                  ${portrait.unfitActivities.map(x => `<li class="text-sm"><span class="font-semibold">${window.__esc(x.act)}</span><div class="text-xs text-text2 mt-1 leading-6">${window.__esc(x.why)}</div></li>`).join('')}
+                </ul>
+              </div>
+            </div>
+            <div class="mt-5 rounded-xl border border-border bg-surface2 p-4 font-mono text-xs text-text2">
+              ${window.__esc(portrait.typeLine)}
+            </div>
+          </div>
+        </div>
+
+        <div class="lg:col-span-2 grid gap-6">
+          <div class="rounded-2xl border border-border bg-surface p-6 shadow-card">
+            <div class="font-mono text-[11px] tracking-[0.18em] uppercase text-text3">Radar</div>
+            <div class="mt-2 text-sm text-text2">将 centered weights 归一化到 [-1, 1] 便于视觉对比。</div>
+            <div class="mt-4">
+              <canvas id="radar" height="280"></canvas>
+            </div>
+          </div>
+
+          <div class="rounded-2xl border border-border bg-surface p-6 shadow-card">
+            <div class="font-mono text-[11px] tracking-[0.18em] uppercase text-text3">Export</div>
+            <div class="mt-2 text-sm text-text2">复制或下载你的向量（JSON）。</div>
+            <div class="mt-4 flex flex-col gap-2">
+              <button id="copyBtn" class="rounded-lg bg-accent px-4 py-3 font-semibold text-bg hover:opacity-90 transition">Copy JSON</button>
+              <button id="downloadBtn" class="rounded-lg border border-border bg-surface2 px-4 py-3 text-text hover:bg-surface transition">Download JSON</button>
+              <a href="ui_calculator.html" class="rounded-lg border border-border bg-surface2 px-4 py-3 text-text hover:bg-surface transition">去 Calculator →</a>
+              <a href="compare.html" class="rounded-lg border border-border bg-surface2 px-4 py-3 text-text hover:bg-surface transition">去 Compare →</a>
+            </div>
+            <pre class="mt-4 rounded-xl border border-border bg-surface2 p-4 text-[11px] leading-6 font-mono text-accent2 overflow-auto" id="jsonPreview"></pre>
+          </div>
+
+          <div class="rounded-2xl border border-border bg-surface p-6 shadow-card">
+            <div class="flex items-center justify-between gap-3">
+              <div>
+                <div class="font-mono text-[11px] tracking-[0.18em] uppercase text-text3">AI Portrait (optional)</div>
+                <div class="mt-2 text-sm text-text2">调用 <span class="font-mono">/v1/messages</span> 生成更长的口语化画像。</div>
+              </div>
+              <button id="aiBtn" class="rounded-lg bg-accent2 px-4 py-2 text-xs font-semibold text-bg hover:opacity-90 transition">生成我的价值画像</button>
+            </div>
+            <div class="mt-4 hidden rounded-xl border border-border bg-surface2 p-4" id="aiCard">
+              <div class="font-mono text-[11px] tracking-[0.18em] uppercase text-text3">Claude Output</div>
+              <div class="mt-3 whitespace-pre-wrap text-sm leading-7 text-text2" id="aiOut">准备就绪</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.getElementById('app').innerHTML = window.__pageShell({
+      active: 'results',
+      subtitle: 'Step 2 · Results / Portrait',
+      title: '你的价值画像 · Value Portrait',
+      bodyHtml: body,
+    });
+
+    // chart
+    const ctx = document.getElementById('radar');
+    new window.Chart(ctx, radarConfig());
+
+    // export preview
+    document.getElementById('jsonPreview').textContent = exportJson;
+    document.getElementById('copyBtn').onclick = async () => {
+      await window.__copy(exportJson);
+      document.getElementById('copyBtn').textContent = 'Copied';
+      setTimeout(() => (document.getElementById('copyBtn').textContent = 'Copy JSON'), 1200);
+    };
+    document.getElementById('downloadBtn').onclick = () => window.__download('value_vector.json', exportJson);
+
+    // clear
+    document.getElementById('clearBtn').onclick = () => {
+      if (!confirm('确定清除本地测量结果？这会移除 localStorage 里的 w_i。')) return;
+      window.__clearPvqResult();
+      location.reload();
+    };
+
+    // AI portrait
+    const aiBtn = document.getElementById('aiBtn');
+    const aiCard = document.getElementById('aiCard');
+    const aiOut = document.getElementById('aiOut');
+    aiBtn.onclick = async () => {
+      aiBtn.disabled = true;
+      aiCard.classList.remove('hidden');
+      aiOut.textContent = '正在分析你的价值画像...';
+
+      const vecText = pvq.w_i.map(v => Number(v).toFixed(3)).join(', ');
+      const systemPrompt =
+        '你是一个基于Schwartz价值理论的个人价值分析师。用户会给你他们的十维价值权重向量，你需要用中文输出：' +
+        '1.他们的价值画像描述（2-3句话）' +
+        '2.最适合他们的5件具体日常活动（每项附一句原因）' +
+        '3.最不适合他们的5件具体日常活动（每项附一句原因）' +
+        '4.一句话总结他们的价值类型。语气要自然口语化，不要太学术。';
+      const userMsg =
+        `我的Schwartz十维价值权重向量如下（维度顺序：自我导向、刺激、享乐、成就、权力、安全、顺从、传统、仁慈、普世主义）：[${vecText}]。` +
+        '请根据这个权重分析我的价值画像。';
+
+      try {
+        const resp = await fetch('/v1/messages', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: 'claude-sonnet-4-20250514',
+            max_tokens: 900,
+            system: systemPrompt,
+            messages: [{ role: 'user', content: [{ type: 'text', text: userMsg }] }],
+          }),
+        });
+        if (!resp.ok) throw new Error(`请求失败（HTTP ${resp.status}）`);
+        const data = await resp.json();
+        const text = Array.isArray(data?.content)
+          ? data.content.filter(b => b?.type === 'text' && typeof b?.text === 'string').map(b => b.text).join('\n')
+          : '';
+        aiOut.textContent = text || '已收到返回，但未解析到文本内容。';
+      } catch (e) {
+        aiOut.textContent = `生成失败：${e?.message || String(e)}`;
+      } finally {
+        aiBtn.disabled = false;
+      }
+    };
+  </script>
+</body>
+</html>
+

@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Menu · Value Coordinate System</title>
+  <script type="module">
+    import { injectTailwindConfig, navHtml } from './app/layout.js';
+    injectTailwindConfig();
+    window.__navHtml = navHtml;
+  </script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body class="min-h-screen bg-bg text-text font-serif">
+  <div id="nav"></div>
+  <main class="mx-auto max-w-2xl px-4 py-10">
+    <h1 class="text-2xl font-semibold">Menu</h1>
+    <p class="mt-2 text-text2 text-sm leading-7">移动端快捷导航。</p>
+
+    <div class="mt-8 grid gap-3">
+      <a class="rounded-xl border border-border bg-surface px-5 py-4 hover:bg-surface2 transition" href="index.html">
+        <div class="font-semibold">Home</div>
+        <div class="text-text3 text-xs font-mono mt-1">Overview</div>
+      </a>
+      <a class="rounded-xl border border-border bg-surface px-5 py-4 hover:bg-surface2 transition" href="pvq40.html">
+        <div class="font-semibold">PVQ-40 Survey</div>
+        <div class="text-text3 text-xs font-mono mt-1">Measure your value weights</div>
+      </a>
+      <a class="rounded-xl border border-border bg-surface px-5 py-4 hover:bg-surface2 transition" href="results.html">
+        <div class="font-semibold">Results / Portrait</div>
+        <div class="text-text3 text-xs font-mono mt-1">Radar · ranking · export</div>
+      </a>
+      <a class="rounded-xl border border-border bg-surface px-5 py-4 hover:bg-surface2 transition" href="ui_calculator.html">
+        <div class="font-semibold">Calculator</div>
+        <div class="text-text3 text-xs font-mono mt-1">U_i(x) ranking</div>
+      </a>
+      <a class="rounded-xl border border-border bg-surface px-5 py-4 hover:bg-surface2 transition" href="compare.html">
+        <div class="font-semibold">Life Choice Compare</div>
+        <div class="text-text3 text-xs font-mono mt-1">Compare multiple options</div>
+      </a>
+      <a class="rounded-xl border border-border bg-surface px-5 py-4 hover:bg-surface2 transition" href="about.html">
+        <div class="font-semibold">About / Theory</div>
+        <div class="text-text3 text-xs font-mono mt-1">Schwartz · Utility</div>
+      </a>
+    </div>
+  </main>
+
+  <script type="module">
+    document.getElementById('nav').innerHTML = window.__navHtml('menu');
+  </script>
+</body>
+</html>
+

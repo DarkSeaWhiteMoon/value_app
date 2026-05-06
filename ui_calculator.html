@@ -4,6 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>主观价值计算器 · U_i(x)</title>
+<script type="module">
+  import { loadPvqResult } from './app/storage.js';
+  window.__PVQ_RESULT = loadPvqResult();
+</script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=DM+Mono:wght@400;500&display=swap');
   :root {
@@ -150,6 +154,13 @@
   <div class="header-label">Step 2 · 主观价值计算器</div>
   <h1>计算 U<sub>i</sub>(x) = w<sub>i</sub>ᵀ v(x) − c<sub>i</sub> · effort(x)</h1>
   <p>输入你的权重向量，回答2道成本敏感题，然后微调每件事物的价值向量与行为成本，系统自动计算净主观价值并排名。</p>
+  <div style="margin-top:18px;display:flex;gap:10px;flex-wrap:wrap;">
+    <a href="index.html" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text2);text-decoration:none;border:1px solid var(--border);padding:8px 10px;">Home</a>
+    <a href="pvq40.html" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text2);text-decoration:none;border:1px solid var(--border);padding:8px 10px;">PVQ-40</a>
+    <a href="results.html" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text2);text-decoration:none;border:1px solid var(--border);padding:8px 10px;">Results</a>
+    <a href="compare.html" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text2);text-decoration:none;border:1px solid var(--border);padding:8px 10px;">Compare</a>
+    <a href="about.html" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text2);text-decoration:none;border:1px solid var(--border);padding:8px 10px;">About</a>
+  </div>
 </div>
 
 <!-- Step 1: w_i -->
@@ -517,6 +528,11 @@ if (hash) {
   const inp = document.getElementById('wiInput');
   inp.value = decodeURIComponent(hash);
   parseWi(decodeURIComponent(hash));
+} else if (window.__PVQ_RESULT && Array.isArray(window.__PVQ_RESULT.w_i)) {
+  const inp = document.getElementById('wiInput');
+  const vec = window.__PVQ_RESULT.w_i.map(v => Number(v).toFixed(3)).join(', ');
+  inp.value = vec;
+  parseWi(vec);
 }
 </script>
 </body>
