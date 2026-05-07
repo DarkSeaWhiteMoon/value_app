@@ -683,7 +683,8 @@ function calculateResults() {
   try {
     const result = window.__computePvqResult(answers);
     window.__savePvqResult(result);
-    window.location.href = 'results.html';
+    alert('下一步：补充现实背景信息，帮助系统结合你的处境生成更准确的推荐。');
+    window.location.href = 'context.html';
     return;
   } catch (e) {
     alert(e?.message || String(e));

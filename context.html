@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Context · 背景问卷</title>
+  <script type="module">
+    import { injectTailwindConfig, pageShell } from './app/layout.js';
+    import { buildUserContext } from './app/schemas.js';
+    import { loadUserContext, saveUserContext } from './app/storage.js';
+    injectTailwindConfig();
+    window.__pageShell = pageShell;
+    window.__buildUserContext = buildUserContext;
+    window.__loadUserContext = loadUserContext;
+    window.__saveUserContext = saveUserContext;
+  </script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body class="min-h-screen bg-bg text-text font-serif">
+  <div id="app"></div>
+
+  <script type="module">
+    const existing = window.__loadUserContext();
+
+    const pressureOptions = [
+      '工作/学业强度', '经济压力', '家庭期待', '情感/关系', '健康', '身份/签证', '社交孤独', '方向迷茫', '时间不够', '居住/搬迁'
+    ];
+
+    const goalShortOptions = [
+      '提升能力', '换工作/转行', '稳定收入', '建立规律', '拓展社交', '改善关系', '健康管理', '做一个项目', '旅行/放松'
+    ];
+
+    const goalLongOptions = [
+      '找到长期方向', '建立稳定职业', '获得自由/灵活', '家庭与关系', '财富积累', '影响力/成就', '身心平衡', '意义与贡献'
+    ];
+
+    function checkboxGroup(name, options, selected = []) {
+      const set = new Set(selected);
+      return `
+        <div class="mt-3 flex flex-wrap gap-2">
+          ${options.map(opt => {
+            const on = set.has(opt);
+            return `
+              <label class="inline-flex items-center gap-2 rounded-full border border-border bg-surface2 px-3 py-1 text-sm text-text2 cursor-pointer hover:bg-surface transition">
+                <input type="checkbox" name="${name}" value="${opt}" ${on ? 'checked' : ''} class="accent-accent2">
+                <span>${opt}</span>
+              </label>
+            `;
+          }).join('')}
+        </div>
+      `;
+    }
+
+    function readChecked(name) {
+      return Array.from(document.querySelectorAll(`input[name="${name}"]:checked`)).map(x => x.value);
+    }
+
+    function render() {
+      const body = `
+        <div class="grid gap-6">
+          <div class="rounded-2xl border border-border bg-surface p-6 shadow-card">
+            <div class="font-mono text-[11px] tracking-[0.18em] uppercase text-text3">Step 2 · Background</div>
+            <div class="mt-3 text-sm leading-7 text-text2">
+              这一步用来补充你的现实处境（时间、压力、风险偏好、约束等）。\n
+              未来 AI 只负责解释与推荐；核心效用计算仍由 Value Engine 完成。
+            </div>
+            <div class="mt-5 flex flex-col sm:flex-row gap-3">
+              <button id="submitBtn" class="rounded-lg bg-accent px-5 py-3 font-semibold text-bg hover:opacity-90 transition">保存并进入 Results →</button>
+              <button id="skipBtn" class="rounded-lg border border-border bg-surface2 px-5 py-3 text-text hover:bg-surface transition">跳过（仍可看 Results）</button>
+            </div>
+          </div>
+
+          <form id="form" class="grid gap-6">
+            <div class="rounded-2xl border border-border bg-surface p-6 shadow-card">
+              <div class="font-mono text-[11px] tracking-[0.18em] uppercase text-text3">Demographics</div>
+              <div class="mt-4 grid gap-4 md:grid-cols-2">
+                <label class="grid gap-2">
+                  <span class="text-[11px] font-mono text-text3">年龄段</span>
+                  <select id="ageRange" class="rounded-lg border border-border bg-surface2 px-3 py-2 text-sm outline-none focus:border-accent">
+                    ${['','<18','18-22','23-27','28-35','36-45','46-60','60+'].map(v => `<option value="${v}" ${existing?.demographics?.ageRange===v?'selected':''}>${v||'（可选）'}</option>`).join('')}
+                  </select>
+                </label>
+                <label class="grid gap-2">
+                  <span class="text-[11px] font-mono text-text3">人生阶段</span>
+                  <select id="stage" class="rounded-lg border border-border bg-surface2 px-3 py-2 text-sm outline-none focus:border-accent">
+                    ${['','学生/在读','刚毕业/起步','职业发展期','转型/过渡期','成家/养育','休整/恢复','探索期'].map(v => `<option value="${v}" ${existing?.demographics?.stage===v?'selected':''}>${v||'（必填建议）'}</option>`).join('')}
+                  </select>
+                </label>
+                <label class="grid gap-2">
+                  <span class="text-[11px] font-mono text-text3">所在城市/地区（可选）</span>
+                  <input id="location" value="${existing?.demographics?.location ? String(existing.demographics.location).replaceAll('"','&quot;') : ''}"
+                    class="rounded-lg border border-border bg-surface2 px-3 py-2 text-sm outline-none focus:border-accent" placeholder="例如：Sydney / 上海" />
+                </label>
+                <label class="grid gap-2">
+                  <span class="text-[11px] font-mono text-text3">教育阶段（可选）</span>
+                  <select id="educationStage" class="rounded-lg border border-border bg-surface2 px-3 py-2 text-sm outline-none focus:border-accent">
+                    ${['','高中及以下','本科','硕士','博士','其他'].map(v => `<option value="${v}" ${existing?.demographics?.educationStage===v?'selected':''}>${v||'（可选）'}</option>`).join('')}
+                  </select>
+                </label>
+              </div>
+            </div>
+
+            <div class="rounded-2xl border border-border bg-surface p-6 shadow-card">
+              <div class="font-mono text-[11px] tracking-[0.18em] uppercase text-text3">Life situation</div>
+              <div class="mt-3 text-sm text-text2">你当前主要在承受哪些压力？（可多选）</div>
+              ${checkboxGroup('pressures', pressureOptions, existing?.lifeSituation?.currentPressures || [])}
+
+              <div class="mt-6 grid gap-4 md:grid-cols-2">
+                <label class="grid gap-2">
+                  <span class="text-[11px] font-mono text-text3">可支配时间</span>
+                  <select id="availableTime" class="rounded-lg border border-border bg-surface2 px-3 py-2 text-sm outline-none focus:border-accent">
+                    ${['','很少（<5h/周）','一般（5-10h/周）','还可以（10-20h/周）','比较多（20h+/周）'].map(v => `<option value="${v}" ${existing?.lifeSituation?.availableTime===v?'selected':''}>${v||'（请选择）'}</option>`).join('')}
+                  </select>
+                </label>
+                <div class="grid gap-3">
+                  <label class="grid gap-2">
+                    <span class="text-[11px] font-mono text-text3">收入稳定需求（1-5）</span>
+                    <input id="incomeStabilityNeed" type="range" min="1" max="5" step="1" value="${existing?.lifeSituation?.incomeStabilityNeed ?? 3}" class="w-full">
+                  </label>
+                  <label class="grid gap-2">
+                    <span class="text-[11px] font-mono text-text3">财务风险承受（1-5）</span>
+                    <input id="financialRiskTolerance" type="range" min="1" max="5" step="1" value="${existing?.lifeSituation?.financialRiskTolerance ?? 3}" class="w-full">
+                  </label>
+                  <label class="grid gap-2">
+                    <span class="text-[11px] font-mono text-text3">社会支持程度（1-5）</span>
+                    <input id="socialSupport" type="range" min="1" max="5" step="1" value="${existing?.lifeSituation?.socialSupport ?? 3}" class="w-full">
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div class="rounded-2xl border border-border bg-surface p-6 shadow-card">
+              <div class="font-mono text-[11px] tracking-[0.18em] uppercase text-text3">Goals</div>
+              <div class="mt-3 text-sm text-text2">短期目标（1-3个月）</div>
+              ${checkboxGroup('goalsShort', goalShortOptions, existing?.goals?.shortTerm || [])}
+              <div class="mt-5 text-sm text-text2">长期目标（1-3年）</div>
+              ${checkboxGroup('goalsLong', goalLongOptions, existing?.goals?.longTerm || [])}
+            </div>
+
+            <div class="rounded-2xl border border-border bg-surface p-6 shadow-card">
+              <div class="font-mono text-[11px] tracking-[0.18em] uppercase text-text3">Constraints</div>
+              <div class="mt-4 grid gap-4 md:grid-cols-2">
+                <label class="inline-flex items-center gap-3 rounded-xl border border-border bg-surface2 px-4 py-3 text-sm text-text2">
+                  <input id="visaConcern" type="checkbox" class="accent-accent2" ${existing?.constraints?.visaConcern ? 'checked' : ''}>
+                  <span>签证/身份顾虑（visa concern）</span>
+                </label>
+                <label class="inline-flex items-center gap-3 rounded-xl border border-border bg-surface2 px-4 py-3 text-sm text-text2">
+                  <input id="budgetLimited" type="checkbox" class="accent-accent2" ${existing?.constraints?.budgetLimited ? 'checked' : ''}>
+                  <span>预算有限（budget limited）</span>
+                </label>
+                <label class="grid gap-2 md:col-span-2">
+                  <span class="text-[11px] font-mono text-text3">家庭期待（简要）</span>
+                  <select id="familyExpectation" class="rounded-lg border border-border bg-surface2 px-3 py-2 text-sm outline-none focus:border-accent">
+                    ${['','比较自由','希望稳定/体面','希望高成就','希望尽快成家','希望留在家附近','其他/复杂'].map(v => `<option value="${v}" ${existing?.constraints?.familyExpectation===v?'selected':''}>${v||'（可选）'}</option>`).join('')}
+                  </select>
+                </label>
+              </div>
+            </div>
+
+            <div class="rounded-2xl border border-border bg-surface p-6 shadow-card">
+              <div class="font-mono text-[11px] tracking-[0.18em] uppercase text-text3">Free text</div>
+              <div class="mt-4 grid gap-4">
+                <label class="grid gap-2">
+                  <span class="text-[11px] font-mono text-text3">你当前最纠结的困境是什么？</span>
+                  <textarea id="currentDilemma" rows="3" class="rounded-lg border border-border bg-surface2 px-3 py-2 text-sm outline-none focus:border-accent"
+                    placeholder="一句话也可以">${existing?.freeText?.currentDilemma || ''}</textarea>
+                </label>
+                <label class="grid gap-2">
+                  <span class="text-[11px] font-mono text-text3">你理想中的生活是什么样？</span>
+                  <textarea id="desiredLife" rows="3" class="rounded-lg border border-border bg-surface2 px-3 py-2 text-sm outline-none focus:border-accent"
+                    placeholder="比如：节奏、关系、工作状态、居住方式...">${existing?.freeText?.desiredLife || ''}</textarea>
+                </label>
+              </div>
+            </div>
+          </form>
+        </div>
+      `;
+
+      document.getElementById('app').innerHTML = window.__pageShell({
+        active: 'context',
+        subtitle: 'Step 2 · User Background / Context',
+        title: '补充现实背景信息 · Context',
+        bodyHtml: body,
+      });
+
+      document.getElementById('skipBtn').onclick = () => {
+        location.href = 'results.html';
+      };
+
+      document.getElementById('submitBtn').onclick = () => {
+        const input = {
+          demographics: {
+            ageRange: document.getElementById('ageRange').value,
+            stage: document.getElementById('stage').value,
+            location: document.getElementById('location').value.trim() || undefined,
+            educationStage: document.getElementById('educationStage').value || undefined,
+          },
+          lifeSituation: {
+            currentPressures: readChecked('pressures'),
+            availableTime: document.getElementById('availableTime').value,
+            incomeStabilityNeed: Number(document.getElementById('incomeStabilityNeed').value),
+            financialRiskTolerance: Number(document.getElementById('financialRiskTolerance').value),
+            socialSupport: Number(document.getElementById('socialSupport').value),
+          },
+          goals: {
+            shortTerm: readChecked('goalsShort'),
+            longTerm: readChecked('goalsLong'),
+          },
+          constraints: {
+            visaConcern: document.getElementById('visaConcern').checked,
+            budgetLimited: document.getElementById('budgetLimited').checked,
+            familyExpectation: document.getElementById('familyExpectation').value,
+          },
+          freeText: {
+            currentDilemma: document.getElementById('currentDilemma').value.trim(),
+            desiredLife: document.getElementById('desiredLife').value.trim(),
+          },
+        };
+
+        const userContext = window.__buildUserContext(input);
+        window.__saveUserContext(userContext);
+        location.href = 'results.html';
+      };
+    }
+
+    render();
+  </script>
+</body>
+</html>
+

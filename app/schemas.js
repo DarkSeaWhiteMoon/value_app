@@ -5,6 +5,22 @@ import { valueDimensions } from './constants.js';
 
 export const SCHEMA_VERSION = 'v1';
 
+function toStringArray(val) {
+  if (!val) return [];
+  if (Array.isArray(val)) return val.map(x => String(x)).filter(Boolean);
+  return [];
+}
+
+function toNumber(val, fallback) {
+  const n = Number(val);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function toBool(val, fallback = false) {
+  if (typeof val === 'boolean') return val;
+  return fallback;
+}
+
 /**
  * ValueProfile — measured or manually supplied individual parameters.
  * @param {object} pvqResult — persisted PVQ payload from storage (has w_i, dimensions, etc.)
@@ -59,26 +75,68 @@ export function normalizeChoice(raw, indexFallback = 0) {
   };
 }
 
-export function buildCompareSessionExport({ profile, utilityParams, choicesRaw, rankingRows }) {
+export function buildUserContext(input) {
+  const demographicsIn = input?.demographics || {};
+  const lifeSituationIn = input?.lifeSituation || {};
+  const goalsIn = input?.goals || {};
+  const constraintsIn = input?.constraints || {};
+  const freeTextIn = input?.freeText || {};
+
+  return {
+    schemaVersion: SCHEMA_VERSION,
+    kind: 'user_context',
+    createdAt: input?.createdAt || new Date().toISOString(),
+    demographics: {
+      ageRange: String(demographicsIn.ageRange || ''),
+      stage: String(demographicsIn.stage || ''),
+      location: demographicsIn.location ? String(demographicsIn.location) : undefined,
+      educationStage: demographicsIn.educationStage ? String(demographicsIn.educationStage) : undefined,
+    },
+    lifeSituation: {
+      currentPressures: toStringArray(lifeSituationIn.currentPressures),
+      availableTime: String(lifeSituationIn.availableTime || ''),
+      incomeStabilityNeed: toNumber(lifeSituationIn.incomeStabilityNeed, 3),
+      financialRiskTolerance: toNumber(lifeSituationIn.financialRiskTolerance, 3),
+      socialSupport: toNumber(lifeSituationIn.socialSupport, 3),
+    },
+    goals: {
+      shortTerm: toStringArray(goalsIn.shortTerm),
+      longTerm: toStringArray(goalsIn.longTerm),
+    },
+    constraints: {
+      visaConcern: toBool(constraintsIn.visaConcern, false),
+      budgetLimited: toBool(constraintsIn.budgetLimited, false),
+      familyExpectation: String(constraintsIn.familyExpectation || ''),
+    },
+    freeText: {
+      currentDilemma: String(freeTextIn.currentDilemma || ''),
+      desiredLife: String(freeTextIn.desiredLife || ''),
+    },
+  };
+}
+
+export function buildCompareSessionExport({ profile, userContext = null, utilityParams, choicesRaw, rankingRows }) {
   const choices = choicesRaw.map((c, i) => normalizeChoice(c, i));
   return {
     schemaVersion: SCHEMA_VERSION,
     kind: 'compare_session',
     exportedAt: new Date().toISOString(),
     profile,
+    userContext,
     utilityParams,
     choices,
     rankings: rankingRows,
   };
 }
 
-export function buildCalculatorSessionExport({ profile, utilityParams, choicesRaw, rankingRows }) {
+export function buildCalculatorSessionExport({ profile, userContext = null, utilityParams, choicesRaw, rankingRows }) {
   const choices = choicesRaw.map((c, i) => normalizeChoice(c, i));
   return {
     schemaVersion: SCHEMA_VERSION,
     kind: 'calculator_session',
     exportedAt: new Date().toISOString(),
     profile,
+    userContext,
     utilityParams,
     choices,
     rankings: rankingRows,

@@ -11,8 +11,10 @@
 <script type="module">
   import * as util from './app/utility.js';
   import { buildValueProfileFromPvqResult, buildValueProfileFromWiOnly, buildCalculatorSessionExport } from './app/schemas.js';
+  import { loadUserContext } from './app/storage.js';
   window.__VCS_UTIL = util;
   window.__VCS_SCHEMA = { buildValueProfileFromPvqResult, buildValueProfileFromWiOnly, buildCalculatorSessionExport };
+  window.__VCS_USER_CONTEXT = loadUserContext();
 </script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=DM+Mono:wght@400;500&display=swap');
@@ -524,6 +526,7 @@ function showResults() {
 
   const exportObj = window.__VCS_SCHEMA.buildCalculatorSessionExport({
     profile,
+    userContext: window.__VCS_USER_CONTEXT || null,
     utilityParams: {
       c_i,
       c_i_mode: 'likert_willingness_1_10',

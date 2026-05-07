@@ -1,5 +1,6 @@
 export const STORAGE_KEYS = {
   pvqResult: 'vcs:pvq40:result:v1',
+  userContext: 'vcs:user_context:v1',
   settings: 'vcs:settings:v1',
 };
 

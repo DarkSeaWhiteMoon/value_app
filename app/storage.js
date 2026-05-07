@@ -25,6 +25,24 @@ export function clearPvqResult() {
   localStorage.removeItem(STORAGE_KEYS.pvqResult);
 }
 
+export function loadUserContext() {
+  const raw = localStorage.getItem(STORAGE_KEYS.userContext);
+  if (!raw) return null;
+  const parsed = safeJsonParse(raw);
+  if (!parsed || typeof parsed !== 'object') return null;
+  if (parsed.kind !== 'user_context') return null;
+  if (parsed.schemaVersion !== 'v1') return null;
+  return parsed;
+}
+
+export function saveUserContext(userContext) {
+  localStorage.setItem(STORAGE_KEYS.userContext, JSON.stringify(userContext));
+}
+
+export function clearUserContext() {
+  localStorage.removeItem(STORAGE_KEYS.userContext);
+}
+
 export function loadSettings() {
   const raw = localStorage.getItem(STORAGE_KEYS.settings);
   return raw ? safeJsonParse(raw) : null;

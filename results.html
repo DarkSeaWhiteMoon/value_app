@@ -6,7 +6,7 @@
   <title>Results · Value Portrait</title>
   <script type="module">
     import { injectTailwindConfig, navHtml, pageShell } from './app/layout.js';
-    import { loadPvqResult, clearPvqResult } from './app/storage.js';
+    import { loadPvqResult, clearPvqResult, loadUserContext } from './app/storage.js';
     import { valueDimensions, DIM_META } from './app/constants.js';
     import { generatePortrait } from './app/portrait.js';
     import { buildValueProfileFromPvqResult } from './app/schemas.js';
@@ -55,6 +55,8 @@
       });
       throw new Error('No PVQ result in localStorage');
     }
+
+    const userContext = loadUserContext();
 
     const dims = pvq.dimensions || [];
     const sorted = [...dims].sort((a, b) => b.centered - a.centered);
@@ -126,6 +128,7 @@
       kind: 'value_profile_snapshot',
       exportedAt: new Date().toISOString(),
       profile: buildValueProfileFromPvqResult(pvq),
+      userContext: userContext || null,
     };
     const exportJson = JSON.stringify(exportObj, null, 2);
 
@@ -148,6 +151,51 @@
             <div class="mt-5">
               ${sorted.map(rowHtml).join('')}
             </div>
+          </div>
+
+          <div class="rounded-2xl border border-border bg-surface p-6 shadow-card">
+            <div class="flex items-start justify-between gap-4">
+              <div>
+                <div class="font-mono text-[11px] tracking-[0.18em] uppercase text-text3">Context</div>
+                <div class="mt-2 text-sm text-text2">你的现实处境摘要（用于推荐的可行性与约束，不参与效用公式计算）。</div>
+              </div>
+              ${userContext ? `
+                <a href="context.html" class="rounded-lg border border-border bg-surface2 px-4 py-2 text-xs font-mono text-text2 hover:bg-surface transition">编辑</a>
+              ` : `
+                <a href="context.html" class="rounded-lg bg-accent2 px-4 py-2 text-xs font-semibold text-bg hover:opacity-90 transition">补充背景信息</a>
+              `}
+            </div>
+            ${userContext ? `
+              <div class="mt-4 grid gap-3 md:grid-cols-2">
+                <div class="rounded-xl border border-border bg-surface2 p-4">
+                  <div class="font-mono text-[11px] tracking-[0.18em] uppercase text-text3">Stage</div>
+                  <div class="mt-2 text-sm text-text">${window.__esc(userContext.demographics?.stage || '—')}</div>
+                  <div class="mt-1 text-xs text-text2">${window.__esc(userContext.demographics?.ageRange || '')}${userContext.demographics?.location ? ' · ' + window.__esc(userContext.demographics.location) : ''}</div>
+                </div>
+                <div class="rounded-xl border border-border bg-surface2 p-4">
+                  <div class="font-mono text-[11px] tracking-[0.18em] uppercase text-text3">Constraints</div>
+                  <div class="mt-2 text-sm text-text2 leading-7">
+                    ${userContext.constraints?.visaConcern ? '签证/身份顾虑 · ' : ''}${userContext.constraints?.budgetLimited ? '预算有限 · ' : ''}${window.__esc(userContext.constraints?.familyExpectation || '')}
+                  </div>
+                </div>
+                <div class="rounded-xl border border-border bg-surface2 p-4 md:col-span-2">
+                  <div class="font-mono text-[11px] tracking-[0.18em] uppercase text-text3">Situation</div>
+                  <div class="mt-2 text-sm text-text2 leading-7">
+                    压力：${(userContext.lifeSituation?.currentPressures || []).slice(0,6).map(window.__esc).join('、') || '—'}<br>
+                    时间：${window.__esc(userContext.lifeSituation?.availableTime || '—')}<br>
+                    稳定需求/风险偏好/支持：${userContext.lifeSituation?.incomeStabilityNeed ?? '—'} / ${userContext.lifeSituation?.financialRiskTolerance ?? '—'} / ${userContext.lifeSituation?.socialSupport ?? '—'}
+                  </div>
+                </div>
+              </div>
+            ` : `
+              <div class="mt-4 rounded-xl border border-border bg-surface2 p-4 text-sm leading-7 text-text2">
+                你还没有填写背景信息。你仍然可以使用 Results / Calculator / Compare。<br>
+                但在生成“可行的推荐”时，补充背景信息会更准。
+                <div class="mt-4">
+                  <a href="context.html" class="rounded-lg bg-accent2 px-4 py-2 text-xs font-semibold text-bg hover:opacity-90 transition inline-flex">补充背景信息，提高推荐准确度 →</a>
+                </div>
+              </div>
+            `}
           </div>
 
           <div class="rounded-2xl border border-border bg-surface p-6 shadow-card">
@@ -338,16 +386,29 @@
       aiCard.classList.remove('hidden');
       aiOut.textContent = '正在分析你的价值画像...';
 
-      const vecText = pvq.w_i.map(v => Number(v).toFixed(3)).join(', ');
       const systemPrompt =
-        '你是一个基于Schwartz价值理论的个人价值分析师。用户会给你他们的十维价值权重向量，你需要用中文输出：' +
-        '1.他们的价值画像描述（2-3句话）' +
-        '2.最适合他们的5件具体日常活动（每项附一句原因）' +
-        '3.最不适合他们的5件具体日常活动（每项附一句原因）' +
-        '4.一句话总结他们的价值类型。语气要自然口语化，不要太学术。';
+        '你是一个基于 Schwartz 价值理论的个人价值分析师 + 现实处境顾问。' +
+        '你会收到两份 JSON：valueProfile（价值结构）与 userContext（现实背景，可能为 null）。' +
+        '重要：你不需要也不允许计算任何效用分数 U_i(x)；效用计算由系统完成。' +
+        '你的任务是解释、给建议，并清晰区分：价值匹配（value fit）/现实可行性（feasibility）/风险或约束（constraints）。' +
+        '请用中文输出以下内容：' +
+        '1) 价值画像（2-3 句，口语化）' +
+        '2) 高主观价值的 5 件具体日常活动（每项附一句原因；结合 userContext 可行性）' +
+        '3) 低主观价值的 5 件具体日常活动（每项附一句原因）' +
+        '4) 适合的近 2 周行动清单（3-5 条，尽量低成本）' +
+        '5) 价值-处境冲突点（如果 userContext 为 null 也要说明“背景缺失”）' +
+        '6) 现实约束与风险提示（明确写出来，不要含糊）' +
+        '语气自然，不要太学术，不要输出代码。';
+
+      const payload = {
+        valueProfile,
+        userContext: userContext || null,
+      };
+
       const userMsg =
-        `我的Schwartz十维价值权重向量如下（维度顺序：自我导向、刺激、享乐、成就、权力、安全、顺从、传统、仁慈、普世主义）：[${vecText}]。` +
-        '请根据这个权重分析我的价值画像。';
+        '以下是我的数据（JSON）：\n' +
+        JSON.stringify(payload, null, 2) +
+        '\n\n请根据这些信息生成分析与建议。';
 
       try {
         const provider = aiProvider.value;

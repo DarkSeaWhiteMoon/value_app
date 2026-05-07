@@ -32,6 +32,7 @@
   <script type="module">
     import * as util from './app/utility.js';
     import { buildValueProfileFromPvqResult, buildCompareSessionExport } from './app/schemas.js';
+    import { loadUserContext } from './app/storage.js';
 
     const pvq = window.__loadPvqResult();
     if (!pvq) {
@@ -56,6 +57,7 @@
 
     const w = pvq.w_i.map(Number);
     const profile = buildValueProfileFromPvqResult(pvq);
+    const userContext = loadUserContext();
     const dimIds = window.__valueDimensions;
     const dimLabels = dimIds.map(id => window.__DIM_META[id].shortEn);
 
@@ -336,6 +338,7 @@
 
       const exportObj = buildCompareSessionExport({
         profile,
+        userContext: userContext || null,
         utilityParams: {
           c_i: ci,
           c_i_mode: 'continuous_0_1',
