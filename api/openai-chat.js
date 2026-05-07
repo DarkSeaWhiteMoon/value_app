@@ -6,7 +6,16 @@
  * POST /api/openai-chat
  * Body JSON:
  *   { model?: string, messages: [{ role: "system"|"user"|"assistant", content: string }], max_tokens?: number, temperature?: number }
+ *
+ * Responses use Node-style res.statusCode / setHeader / end only (no Express helpers like .type(), .json(), .send()).
  */
+
+function sendJson(res, statusCode, obj) {
+  const body = JSON.stringify(obj);
+  res.statusCode = statusCode;
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  res.end(body);
+}
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -14,18 +23,19 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
   if (req.method === 'OPTIONS') {
-    res.status(204).end();
+    res.statusCode = 204;
+    res.end();
     return;
   }
 
   if (req.method !== 'POST') {
-    res.status(405).json({ error: 'Method not allowed' });
+    sendJson(res, 405, { error: 'Method not allowed' });
     return;
   }
 
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey || !String(apiKey).trim()) {
-    res.status(500).json({
+    sendJson(res, 500, {
       error: 'Missing OPENAI_API_KEY on server',
       vercelEnv: process.env.VERCEL_ENV || null,
       vercelUrl: process.env.VERCEL_URL || null,
@@ -43,7 +53,6 @@ export default async function handler(req, res) {
         return null;
       }
     }
-    // Fallback: manually read stream (some runtimes don't populate req.body)
     const chunks = [];
     for await (const chunk of req) chunks.push(chunk);
     const raw = Buffer.concat(chunks).toString('utf8');
@@ -57,13 +66,13 @@ export default async function handler(req, res) {
 
   const body = await readBodyJson();
   if (!body) {
-    res.status(400).json({ error: 'Invalid JSON body (empty or unparsable)' });
+    sendJson(res, 400, { error: 'Invalid JSON body (empty or unparsable)' });
     return;
   }
 
   const messages = body?.messages;
   if (!Array.isArray(messages) || messages.length === 0) {
-    res.status(400).json({ error: 'messages[] required' });
+    sendJson(res, 400, { error: 'messages[] required' });
     return;
   }
 
@@ -89,15 +98,14 @@ export default async function handler(req, res) {
     });
 
     const text = await r.text();
+    const out = r.ok ? text : (text || JSON.stringify({ error: 'OpenAI request failed' }));
+    res.statusCode = r.ok ? 200 : r.status;
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
-    if (!r.ok) {
-      // Try to pass through OpenAI error JSON if present; otherwise wrap.
-      res.status(r.status).send(text || JSON.stringify({ error: 'OpenAI request failed' }));
-      return;
-    }
-
-    res.status(200).send(text);
+    res.end(out);
   } catch (e) {
-    res.status(502).json({ error: e?.message || String(e), hint: 'Check OPENAI_API_KEY and Vercel function logs' });
+    sendJson(res, 502, {
+      error: e?.message || String(e),
+      hint: 'Check OPENAI_API_KEY and Vercel function logs',
+    });
   }
 }
