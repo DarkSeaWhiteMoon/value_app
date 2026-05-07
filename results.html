@@ -20,6 +20,8 @@
     window.__valueDimensions = valueDimensions;
     window.__DIM_META = DIM_META;
     window.__generatePortrait = generatePortrait;
+    window.__buildValueProfileFromPvqResult = buildValueProfileFromPvqResult;
+    window.__inferArchetype = inferArchetype;
     window.__copy = copyToClipboard;
     window.__download = downloadText;
     window.__fmt = fmt;
@@ -63,8 +65,8 @@
     const top5 = sorted.slice(0, 5);
     const bottom5 = sorted.slice(-5).reverse();
     const portrait = window.__generatePortrait(pvq);
-    const valueProfile = buildValueProfileFromPvqResult(pvq);
-    const archetypeResult = inferArchetype(valueProfile);
+    const valueProfile = window.__buildValueProfileFromPvqResult(pvq);
+    const archetypeResult = window.__inferArchetype(valueProfile);
 
     const w = pvq.w_i;
     const maxAbs = Math.max(...w.map(x => Math.abs(x))) || 1;
