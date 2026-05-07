@@ -10,6 +10,7 @@
     import { valueDimensions, DIM_META } from './app/constants.js';
     import { generatePortrait } from './app/portrait.js';
     import { buildValueProfileFromPvqResult } from './app/schemas.js';
+    import { inferArchetype } from './app/archetypes.js';
     import { copyToClipboard, downloadText, fmt, htmlEscape } from './app/ui.js';
     injectTailwindConfig();
     window.__navHtml = navHtml;
@@ -60,6 +61,8 @@
     const top5 = sorted.slice(0, 5);
     const bottom5 = sorted.slice(-5).reverse();
     const portrait = window.__generatePortrait(pvq);
+    const valueProfile = buildValueProfileFromPvqResult(pvq);
+    const archetypeResult = inferArchetype(valueProfile);
 
     const w = pvq.w_i;
     const maxAbs = Math.max(...w.map(x => Math.abs(x))) || 1;
@@ -172,6 +175,58 @@
             </div>
             <div class="mt-5 rounded-xl border border-border bg-surface2 p-4 font-mono text-xs text-text2">
               ${window.__esc(portrait.typeLine)}
+            </div>
+          </div>
+
+          <div class="rounded-2xl border border-border bg-surface p-6 shadow-card">
+            <div class="flex items-start justify-between gap-4">
+              <div>
+                <div class="font-mono text-[11px] tracking-[0.18em] uppercase text-text3">Archetype</div>
+                <div class="mt-2 text-sm text-text2">Value Archetype System（基于 Schwartz 十维，不是 MBTI）。</div>
+              </div>
+              <div class="text-right">
+                <div class="font-mono text-[11px] text-text3">Primary</div>
+                <div class="mt-1 inline-flex items-center gap-2">
+                  <span class="inline-block h-2.5 w-2.5 rounded-full" style="background:${archetypeResult.primary.colorPalette.accent}"></span>
+                  <span class="font-semibold text-text">${window.__esc(archetypeResult.primary.zh)}</span>
+                  <span class="font-mono text-xs text-text3">${window.__esc(archetypeResult.primary.en)}</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="mt-5 rounded-2xl border border-border bg-surface2 p-5">
+              <div class="flex items-start justify-between gap-4">
+                <div class="flex-1">
+                  <div class="text-sm font-semibold" style="color:${archetypeResult.primary.colorPalette.accent}">
+                    ${window.__esc(archetypeResult.primary.tagline)}
+                  </div>
+                  <div class="mt-3 text-sm leading-7 text-text2">
+                    ${window.__esc(archetypeResult.primary.description)}
+                  </div>
+                </div>
+                <div class="shrink-0 text-right">
+                  ${archetypeResult.secondary ? `
+                    <div class="font-mono text-[11px] text-text3">Secondary</div>
+                    <div class="mt-1 inline-flex items-center gap-2">
+                      <span class="inline-block h-2.5 w-2.5 rounded-full" style="background:${archetypeResult.secondary.colorPalette.accent}"></span>
+                      <span class="text-sm font-semibold text-text">${window.__esc(archetypeResult.secondary.zh)}</span>
+                      <span class="font-mono text-[11px] text-text3">${window.__esc(archetypeResult.secondary.en)}</span>
+                    </div>
+                  ` : `
+                    <div class="font-mono text-[11px] text-text3">Secondary</div>
+                    <div class="mt-1 text-xs text-text3 font-mono">—</div>
+                  `}
+                </div>
+              </div>
+
+              <div class="mt-5 flex flex-wrap gap-2">
+                ${archetypeResult.primary.symbolicTraits.map(t => `
+                  <span class="inline-flex items-center rounded-full border border-border bg-bg/30 px-3 py-1 text-xs text-text2">
+                    <span class="mr-2 inline-block h-1.5 w-1.5 rounded-full" style="background:${archetypeResult.primary.colorPalette.accent}"></span>
+                    ${window.__esc(t)}
+                  </span>
+                `).join('')}
+              </div>
             </div>
           </div>
         </div>
