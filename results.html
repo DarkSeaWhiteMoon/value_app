@@ -130,7 +130,7 @@
       schemaVersion: 'v1',
       kind: 'value_profile_snapshot',
       exportedAt: new Date().toISOString(),
-      profile: buildValueProfileFromPvqResult(pvq),
+      profile: window.__buildValueProfileFromPvqResult(pvq),
       userContext: userContext || null,
     };
     const exportJson = JSON.stringify(exportObj, null, 2);
