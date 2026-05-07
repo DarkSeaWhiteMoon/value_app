@@ -430,8 +430,11 @@
               ],
             }),
           });
-          if (!resp.ok) throw new Error(`请求失败（HTTP ${resp.status}）`);
-          const data = await resp.json();
+          if (!resp.ok) {
+            const errText = await resp.text().catch(() => '');
+            throw new Error(`请求失败（HTTP ${resp.status}）${errText ? '\n' + errText : ''}`);
+          }
+          const data = await resp.json().catch(() => null);
           const text = data?.choices?.[0]?.message?.content;
           aiOut.textContent = typeof text === 'string' && text.trim()
             ? text

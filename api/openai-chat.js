@@ -29,14 +29,31 @@ export default async function handler(req, res) {
     return;
   }
 
-  let body = req.body;
-  if (typeof body === 'string') {
-    try {
-      body = JSON.parse(body);
-    } catch {
-      res.status(400).json({ error: 'Invalid JSON body' });
-      return;
+  async function readBodyJson() {
+    if (req.body && typeof req.body === 'object') return req.body;
+    if (typeof req.body === 'string') {
+      try {
+        return JSON.parse(req.body);
+      } catch {
+        return null;
+      }
     }
+    // Fallback: manually read stream (some runtimes don't populate req.body)
+    const chunks = [];
+    for await (const chunk of req) chunks.push(chunk);
+    const raw = Buffer.concat(chunks).toString('utf8');
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return null;
+    }
+  }
+
+  const body = await readBodyJson();
+  if (!body) {
+    res.status(400).json({ error: 'Invalid JSON body (empty or unparsable)' });
+    return;
   }
 
   const messages = body?.messages;
@@ -68,12 +85,13 @@ export default async function handler(req, res) {
 
     const text = await r.text();
     if (!r.ok) {
-      res.status(r.status).type('application/json').send(text);
+      // Try to pass through OpenAI error JSON if present; otherwise wrap.
+      res.status(r.status).type('application/json').send(text || JSON.stringify({ error: 'OpenAI request failed' }));
       return;
     }
 
     res.status(200).type('application/json').send(text);
   } catch (e) {
-    res.status(502).json({ error: e?.message || String(e) });
+    res.status(502).json({ error: e?.message || String(e), hint: 'Check OPENAI_API_KEY and Vercel function logs' });
   }
 }
