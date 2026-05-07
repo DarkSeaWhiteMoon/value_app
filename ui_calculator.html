@@ -8,6 +8,12 @@
   import { loadPvqResult } from './app/storage.js';
   window.__PVQ_RESULT = loadPvqResult();
 </script>
+<script type="module">
+  import * as util from './app/utility.js';
+  import { buildValueProfileFromPvqResult, buildValueProfileFromWiOnly, buildCalculatorSessionExport } from './app/schemas.js';
+  window.__VCS_UTIL = util;
+  window.__VCS_SCHEMA = { buildValueProfileFromPvqResult, buildValueProfileFromWiOnly, buildCalculatorSessionExport };
+</script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=DM+Mono:wght@400;500&display=swap');
   :root {
@@ -257,6 +263,8 @@ let items = ITEMS_DATA.map(d => ({...d, v:[...d.v], effort:d.effort}));
 
 let wi = null;
 let ci = null;
+/** @type {number|null} Likert 1..10 when answered; used only for export metadata */
+let willingnessAnswer = null;
 let opened = new Set();
 
 // ── w_i ───────────────────────────────────────────────
@@ -288,8 +296,8 @@ function buildCostQuestion() {
     btn.onclick = () => {
       document.querySelectorAll('.likert-btn').forEach(b=>b.classList.remove('sel'));
       btn.classList.add('sel');
-      // willingness: high = low c_i; low = high c_i
-      ci = parseFloat(((10-v)/9).toFixed(3)); // maps 1→1.0, 10→0.0
+      willingnessAnswer = v;
+      ci = window.__VCS_UTIL.likertWillingnessToCi(v); // 1→1.0, 10→0.0
       document.getElementById('ciDisplay').innerHTML =
         `c_i = <span>${ci.toFixed(3)}</span>（愿意程度 ${v}/10 → 成本敏感系数 ${ci.toFixed(3)}）`;
       checkReady(); updateAllUi();
@@ -302,9 +310,7 @@ function buildCostQuestion() {
 function computeUi(itemIdx) {
   if (!wi || ci === null) return null;
   const item = items[itemIdx];
-  const benefit = wi.reduce((s,w,d) => s + w * item.v[d], 0);
-  const cost = ci * item.effort;
-  return { benefit, cost, net: benefit - cost };
+  return window.__VCS_UTIL.computeUtility(wi, ci, item.v, item.effort);
 }
 
 // ── build items ───────────────────────────────────────
@@ -486,18 +492,49 @@ function showResults() {
     list.appendChild(row);
   });
 
-  // vector dump
-  let out = `w_i = [${wi.map(v=>v.toFixed(3)).join(', ')}]\n`;
-  out += `c_i = ${ci.toFixed(3)}\n\n`;
-  out += `维度顺序：${DIM_NAMES.join('，')}\n\n`;
-  items.forEach((item,idx) => {
-    const r = computeUi(idx);
-    out += `${item.name}\n`;
-    out += `  v(x) = [${item.v.join(', ')}]\n`;
-    out += `  effort = ${item.effort}\n`;
-    out += `  U_i(x) = ${r.net.toFixed(3)} (效益${r.benefit.toFixed(3)} − 成本${r.cost.toFixed(3)})\n\n`;
+  const profile = window.__PVQ_RESULT && Array.isArray(window.__PVQ_RESULT.w_i)
+    ? window.__VCS_SCHEMA.buildValueProfileFromPvqResult(window.__PVQ_RESULT)
+    : window.__VCS_SCHEMA.buildValueProfileFromWiOnly(wi);
+
+  const choicesRaw = items.map((item, idx) => ({
+    id: `calc_item_${idx}`,
+    name: item.name,
+    tag: item.tag,
+    v: item.v,
+    effort: item.effort,
+  }));
+
+  const rankingRows = items.map((item, idx) => {
+    const r = window.__VCS_UTIL.computeUtility(wi, ci, item.v, item.effort);
+    return {
+      choiceId: `calc_item_${idx}`,
+      name: item.name,
+      tag: item.tag,
+      utility: {
+        U_i: Number(r.net.toFixed(4)),
+        benefit: Number(r.benefit.toFixed(4)),
+        cost: Number(r.cost.toFixed(4)),
+      },
+      topContributors: window.__VCS_UTIL.rankContributors(r.perDimensionContributions, 3),
+      _sortKey: r.net,
+    };
+  })
+    .sort((a, b) => b._sortKey - a._sortKey)
+    .map(({ _sortKey, ...row }, idx) => ({ rank: idx + 1, ...row }));
+
+  const exportObj = window.__VCS_SCHEMA.buildCalculatorSessionExport({
+    profile,
+    utilityParams: {
+      c_i,
+      c_i_mode: 'likert_willingness_1_10',
+      willingness_likert: willingnessAnswer,
+      mapping_formula: 'c_i = (10 - willingness) / 9',
+    },
+    choicesRaw,
+    rankingRows,
   });
-  document.getElementById('vectorOut').textContent = out;
+
+  document.getElementById('vectorOut').textContent = JSON.stringify(exportObj, null, 2);
 
   document.getElementById('results').classList.add('show');
   document.getElementById('results').scrollIntoView({behavior:'smooth'});
@@ -505,7 +542,7 @@ function showResults() {
 
 function restart() {
   items = ITEMS_DATA.map(d => ({...d, v:[...d.v], effort:d.effort}));
-  wi = null; ci = null; opened.clear();
+  wi = null; ci = null; willingnessAnswer = null; opened.clear();
   document.getElementById('wiInput').value = '';
   document.getElementById('wiTags').innerHTML = '';
   document.getElementById('ciDisplay').innerHTML = 'c_i = <span>—</span>（尚未回答）';

@@ -30,6 +30,9 @@
   <div id="app"></div>
 
   <script type="module">
+    import * as util from './app/utility.js';
+    import { buildValueProfileFromPvqResult, buildCompareSessionExport } from './app/schemas.js';
+
     const pvq = window.__loadPvqResult();
     if (!pvq) {
       document.getElementById('app').innerHTML = window.__pageShell({
@@ -52,11 +55,11 @@
     }
 
     const w = pvq.w_i.map(Number);
+    const profile = buildValueProfileFromPvqResult(pvq);
     const dimIds = window.__valueDimensions;
     const dimLabels = dimIds.map(id => window.__DIM_META[id].shortEn);
-    const dimZh = dimIds.map(id => window.__DIM_META[id].zh);
 
-    // choice structure: { name, tag, v:[10] 1..10, effort:1..10 }
+    // choice structure: { id, name, tag, v:[10] 1..10, effort:1..10 }
     const PRESET = [
       { name: '换一份更有挑战的工作', tag: 'career', v: [7,7,3,8,5,4,3,2,2,3], effort: 8 },
       { name: '报名一个系统课程深度学习', tag: 'learning', v: [9,4,2,8,3,5,4,2,2,4], effort: 7 },
@@ -64,29 +67,23 @@
       { name: '把更多时间给亲密关系/家庭', tag: 'relationship', v: [4,2,5,3,2,7,6,6,8,4], effort: 5 },
     ];
 
-    let choices = PRESET.map(c => ({ ...c, v: [...c.v] }));
+    let choices = PRESET.map((c, i) => ({ ...c, id: `compare_preset_${i}`, v: [...c.v] }));
 
     // c_i: 0..1, higher means more cost sensitive
     let ci = 0.45;
 
-    function dot(a, b) {
-      let s = 0;
-      for (let i = 0; i < a.length; i++) s += a[i] * b[i];
-      return s;
+    function computeChoice(choice) {
+      return util.computeUtility(w, ci, choice.v, choice.effort);
     }
 
-    function compute(choice) {
-      const benefit = dot(w, choice.v);
-      const cost = ci * choice.effort;
-      const net = benefit - cost;
-      // contribution per dimension
-      const contrib = choice.v.map((vx, i) => w[i] * vx);
-      return { benefit, cost, net, contrib };
-    }
-
-    function topContrib(contrib, n = 3) {
-      const arr = contrib.map((x, i) => ({ i, x })).sort((a, b) => Math.abs(b.x) - Math.abs(a.x));
-      return arr.slice(0, n);
+    function contributorSummary(perDim, n = 3) {
+      return util.rankContributors(perDim, n, dimIds)
+        .map(t => {
+          const zh = window.__DIM_META[t.dimensionId].zh;
+          const x = t.contribution;
+          return `${zh}(${x >= 0 ? '+' : ''}${x.toFixed(1)})`;
+        })
+        .join(' · ');
     }
 
     function palette(idx) {
@@ -95,7 +92,7 @@
     }
 
     function render() {
-      const computed = choices.map(c => ({ ...c, _r: compute(c) }));
+      const computed = choices.map(c => ({ ...c, _r: computeChoice(c) }));
       const sorted = [...computed].sort((a, b) => b._r.net - a._r.net);
       const maxAbsNet = Math.max(...computed.map(x => Math.abs(x._r.net))) || 1;
 
@@ -161,9 +158,7 @@
                 ${sorted.map((c, idx) => {
                   const isPos = c._r.net >= 0;
                   const pct = Math.abs(c._r.net) / maxAbsNet * 100;
-                  const top = topContrib(c._r.contrib, 3)
-                    .map(t => `${dimZh[t.i]}(${t.x>=0?'+':''}${t.x.toFixed(1)})`)
-                    .join(' · ');
+                  const top = contributorSummary(c._r.perDimensionContributions, 3);
                   return `
                     <div class="rounded-xl border border-border bg-surface2 p-4">
                       <div class="flex items-start justify-between gap-3">
@@ -232,7 +227,7 @@
                 ${dimIds.map((id, d) => `
                   <div class="rounded-xl border border-border bg-bg/30 p-3">
                     <div class="flex items-center justify-between">
-                      <div class="text-[11px] font-mono text-text3">${window.__esc(DIM_META[id].shortEn)}</div>
+                      <div class="text-[11px] font-mono text-text3">${window.__esc(window.__DIM_META[id].shortEn)}</div>
                       <div class="text-xs font-mono text-accent">${c.v[d]}</div>
                     </div>
                     <input data-k="v" data-i="${idx}" data-d="${d}" type="range" min="1" max="10" step="1" value="${c.v[d]}" class="mt-2 w-full" />
@@ -289,7 +284,7 @@
       });
 
       document.getElementById('addChoice').onclick = () => {
-        choices.push({ name: '新选择', tag: 'custom', v: new Array(10).fill(5), effort: 5 });
+        choices.push({ id: `compare_${Date.now()}`, name: '新选择', tag: 'custom', v: new Array(10).fill(5), effort: 5 });
         render();
       };
 
@@ -326,13 +321,29 @@
       void chart;
 
       // export output
-      const exportObj = {
-        createdAt: new Date().toISOString(),
-        w_i: pvq.w_i,
-        c_i: ci,
-        choices: choices,
-        ranking: sorted.map(x => ({ name: x.name, tag: x.tag, U: Number(x._r.net.toFixed(3)), benefit: Number(x._r.benefit.toFixed(3)), cost: Number(x._r.cost.toFixed(3)) })),
-      };
+      const rankingRows = sorted.map((row, idx) => ({
+        rank: idx + 1,
+        choiceId: row.id,
+        name: row.name,
+        tag: row.tag,
+        utility: {
+          U_i: Number(row._r.net.toFixed(4)),
+          benefit: Number(row._r.benefit.toFixed(4)),
+          cost: Number(row._r.cost.toFixed(4)),
+        },
+        topContributors: util.rankContributors(row._r.perDimensionContributions, 3, dimIds),
+      }));
+
+      const exportObj = buildCompareSessionExport({
+        profile,
+        utilityParams: {
+          c_i: ci,
+          c_i_mode: 'continuous_0_1',
+          formula: 'U_i(x)=dot(w_i,v(x))-c_i*effort(x)',
+        },
+        choicesRaw: choices,
+        rankingRows,
+      });
       const exportJson = JSON.stringify(exportObj, null, 2);
       document.getElementById('out').textContent = exportJson;
       document.getElementById('copyOut').onclick = async () => {

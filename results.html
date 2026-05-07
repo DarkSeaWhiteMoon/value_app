@@ -9,6 +9,7 @@
     import { loadPvqResult, clearPvqResult } from './app/storage.js';
     import { valueDimensions, DIM_META } from './app/constants.js';
     import { generatePortrait } from './app/portrait.js';
+    import { buildValueProfileFromPvqResult } from './app/schemas.js';
     import { copyToClipboard, downloadText, fmt, htmlEscape } from './app/ui.js';
     injectTailwindConfig();
     window.__navHtml = navHtml;
@@ -118,13 +119,10 @@
     }
 
     const exportObj = {
-      createdAt: pvq.createdAt,
-      valueDimensions: window.__valueDimensions,
-      w_i: pvq.w_i,
-      grandMean: pvq.grandMean,
-      dimensions: pvq.dimensions,
-      top: pvq.top,
-      bottom: pvq.bottom,
+      schemaVersion: 'v1',
+      kind: 'value_profile_snapshot',
+      exportedAt: new Date().toISOString(),
+      profile: buildValueProfileFromPvqResult(pvq),
     };
     const exportJson = JSON.stringify(exportObj, null, 2);
 
