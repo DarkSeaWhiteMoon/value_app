@@ -89,13 +89,14 @@ export default async function handler(req, res) {
     });
 
     const text = await r.text();
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
     if (!r.ok) {
       // Try to pass through OpenAI error JSON if present; otherwise wrap.
-      res.status(r.status).type('application/json').send(text || JSON.stringify({ error: 'OpenAI request failed' }));
+      res.status(r.status).send(text || JSON.stringify({ error: 'OpenAI request failed' }));
       return;
     }
 
-    res.status(200).type('application/json').send(text);
+    res.status(200).send(text);
   } catch (e) {
     res.status(502).json({ error: e?.message || String(e), hint: 'Check OPENAI_API_KEY and Vercel function logs' });
   }
