@@ -24,8 +24,13 @@ export default async function handler(req, res) {
   }
 
   const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    res.status(500).json({ error: 'Missing OPENAI_API_KEY on server' });
+  if (!apiKey || !String(apiKey).trim()) {
+    res.status(500).json({
+      error: 'Missing OPENAI_API_KEY on server',
+      vercelEnv: process.env.VERCEL_ENV || null,
+      vercelUrl: process.env.VERCEL_URL || null,
+      hint: 'Ensure OPENAI_API_KEY is set (non-empty) and redeploy after changing env vars.',
+    });
     return;
   }
 
