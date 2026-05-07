@@ -17,6 +17,7 @@
     window.__pageShell = pageShell;
     window.__loadPvqResult = loadPvqResult;
     window.__clearPvqResult = clearPvqResult;
+    window.__loadUserContext = loadUserContext;
     window.__valueDimensions = valueDimensions;
     window.__DIM_META = DIM_META;
     window.__generatePortrait = generatePortrait;
@@ -58,7 +59,7 @@
       throw new Error('No PVQ result in localStorage');
     }
 
-    const userContext = loadUserContext();
+    const userContext = window.__loadUserContext();
 
     const dims = pvq.dimensions || [];
     const sorted = [...dims].sort((a, b) => b.centered - a.centered);
